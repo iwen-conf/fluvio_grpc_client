@@ -13,8 +13,10 @@ type Config struct {
 
 // ServerConfig 定义了 gRPC 服务器的配置
 type ServerConfig struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
+	Host           string `json:"host"`
+	Port           int    `json:"port"`
+	ConnectTimeout int    `json:"connectTimeout"` // 连接超时时间（秒）
+	CallTimeout    int    `json:"callTimeout"`    // 调用超时时间（秒）
 }
 
 // Load 从指定路径加载 JSON 配置文件

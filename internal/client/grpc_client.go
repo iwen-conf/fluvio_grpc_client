@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"fluvio_grpc_client/internal/config"
+	"github.com/iwen-conf/fluvio_grpc_client/internal/config"
 
 	"github.com/iwen-conf/colorprint/clr"
 	"google.golang.org/grpc"
@@ -37,7 +37,12 @@ func Connect(cfg *config.ServerConfig) (*grpc.ClientConn, error) {
 		return nil, fmt.Errorf("建立配置服务失败 (%s): %w", serverAddr, err)
 	}
 	conn.Connect()
-	ctx, cancel := context.WithTimeout(context.Background(), defaultConnectTimeout)
+	// 读取 connectTimeout 配置
+	connectTimeout := defaultConnectTimeout
+	if cfg.ConnectTimeout > 0 {
+		connectTimeout = time.Duration(cfg.ConnectTimeout) * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), connectTimeout)
 	defer cancel()
 
 	for {

@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	pb "fluvio_grpc_client/proto/fluvio_service"
+	pb "github.com/iwen-conf/fluvio_grpc_client/proto/fluvio_service"
 
 	"github.com/iwen-conf/colorprint/clr"
 	"google.golang.org/grpc"

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"fluvio_grpc_client/internal/client"
-	"fluvio_grpc_client/internal/config"
+	"github.com/iwen-conf/fluvio_grpc_client/internal/client"
+	"github.com/iwen-conf/fluvio_grpc_client/internal/config"
 
 	"github.com/iwen-conf/colorprint/clr"
 )

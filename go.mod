@@ -1,4 +1,4 @@
-module fluvio_grpc_client
+module github.com/iwen-conf/fluvio_grpc_client
 
 go 1.24
 

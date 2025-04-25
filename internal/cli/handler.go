@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"fluvio_grpc_client/internal/client"
-	pb "fluvio_grpc_client/proto/fluvio_service"
+	"github.com/iwen-conf/fluvio_grpc_client/internal/client"
+	pb "github.com/iwen-conf/fluvio_grpc_client/proto/fluvio_service"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

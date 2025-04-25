@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"fluvio_grpc_client/internal/cli"
-	"fluvio_grpc_client/internal/client"
-	"fluvio_grpc_client/internal/config"
-	pb "fluvio_grpc_client/proto/fluvio_service"
+	"github.com/iwen-conf/fluvio_grpc_client/internal/cli"
+	"github.com/iwen-conf/fluvio_grpc_client/internal/client"
+	"github.com/iwen-conf/fluvio_grpc_client/internal/config"
+	pb "github.com/iwen-conf/fluvio_grpc_client/proto/fluvio_service"
 
 	"github.com/iwen-conf/colorprint/clr"
 )
