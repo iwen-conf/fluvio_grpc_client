@@ -1,0 +1,371 @@
+syntax = "proto3"; // 指定使用 proto3 语法
+
+package fluvio_grpc; // 定义包名
+
+import "google/protobuf/timestamp.proto"; // 导入 Timestamp 类型
+
+option go_package = "proto/fluvio_service"; // 指定生成的 Go 代码的包路径
+
+// FluvioService 定义了模拟 Fluvio 的核心服务接口
+service FluvioService {
+  // 消息生产/消费相关
+  rpc Produce(ProduceRequest) returns (ProduceReply);
+  rpc BatchProduce(BatchProduceRequest) returns (BatchProduceReply);
+  rpc Consume(ConsumeRequest) returns (ConsumeReply);
+  rpc StreamConsume(StreamConsumeRequest) returns (stream ConsumedMessage);
+  rpc CommitOffset(CommitOffsetRequest) returns (CommitOffsetReply); // 提交消费位点
+
+  // 主题管理相关
+  rpc CreateTopic(CreateTopicRequest) returns (CreateTopicReply);
+  rpc DeleteTopic(DeleteTopicRequest) returns (DeleteTopicReply);
+  rpc ListTopics(ListTopicsRequest) returns (ListTopicsReply);
+  rpc DescribeTopic(DescribeTopicRequest) returns (DescribeTopicReply); // 获取主题详情
+
+  // 消费者组管理相关
+  rpc ListConsumerGroups(ListConsumerGroupsRequest) returns (ListConsumerGroupsReply); // 列出消费组
+  rpc DescribeConsumerGroup(DescribeConsumerGroupRequest) returns (DescribeConsumerGroupReply); // 获取消费组详情
+
+  // SmartModule 管理相关
+  rpc CreateSmartModule(CreateSmartModuleRequest) returns (CreateSmartModuleReply); // 创建 SmartModule
+  rpc DeleteSmartModule(DeleteSmartModuleRequest) returns (DeleteSmartModuleReply); // 删除 SmartModule
+  rpc ListSmartModules(ListSmartModulesRequest) returns (ListSmartModulesReply);    // 列出 SmartModule
+  rpc DescribeSmartModule(DescribeSmartModuleRequest) returns (DescribeSmartModuleReply); // 新增: 获取 SmartModule 详情
+  rpc UpdateSmartModule(UpdateSmartModuleRequest) returns (UpdateSmartModuleReply); // 新增: 更新 SmartModule
+
+  // 其他
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckReply);
+}
+
+// 新增: FluvioAdminService 定义了管理和监控相关的接口
+service FluvioAdminService {
+  rpc DescribeCluster(DescribeClusterRequest) returns (DescribeClusterReply); // 获取集群状态
+  rpc ListBrokers(ListBrokersRequest) returns (ListBrokersReply);       // 列出 Broker 信息
+  rpc GetMetrics(GetMetricsRequest) returns (GetMetricsReply);         // 获取指标
+}
+
+// --- 消息生产/消费相关 --- //
+
+// ProduceRequest 生产单条消息的请求结构
+message ProduceRequest {
+  string topic = 1; // 目标主题名称
+  string message = 2; // 消息内容
+  string key = 3; // 消息的 Key，用于分区或去重等场景
+  map<string, string> headers = 4; // 消息的自定义头信息，用于传递额外元数据
+  google.protobuf.Timestamp timestamp = 5; // 使用标准 Timestamp 类型
+  string message_id = 6; // 可选的消息唯一 ID (如 UUID)，为空则服务端生成
+}
+
+// ProduceReply 生产单条消息的响应结构
+message ProduceReply {
+  bool success = 1; // 操作是否成功
+  string error = 2; // 如果失败，包含错误信息
+  string message_id = 3; // 服务端确认（或生成）的消息 ID
+}
+
+// BatchProduceRequest 批量生产消息的请求结构
+message BatchProduceRequest {
+  string topic = 1; // 目标主题名称
+  repeated ProduceRequest messages = 2; // 需要批量生产的消息列表
+}
+
+// BatchProduceReply 批量生产消息的响应结构
+message BatchProduceReply {
+  repeated bool success = 1; // 每个消息是否成功生产的标志列表
+  repeated string error = 2; // 每个消息对应的错误信息列表（如果失败）
+  // 可以考虑返回 message_ids 列表
+}
+
+// ConsumeRequest 消费消息的请求结构
+message ConsumeRequest {
+  string topic = 1; // 目标主题名称
+  int32 max_messages = 2; // 本次请求最多消费的消息数量
+  int64 offset = 3; // 消费的起始偏移量
+  string group = 4; // 消费组名称
+  int32 partition = 5; // 新增: 可选, 目标特定分区 ID, 默认消费所有分区
+}
+
+// ConsumedMessage 包含元数据的已消费消息结构
+message ConsumedMessage {
+  string message = 1; // 消息内容
+  int64 offset = 2; // 消息在主题分区中的偏移量
+  string key = 3; // 消息的 Key
+  map<string, string> headers = 4; // 消息的头信息
+  int64 timestamp = 5; // 消息的时间戳 (保持 int64)
+  string message_id = 6; // 消息的唯一 ID
+  int32 partition = 7; // 新增: 消息所属的分区 ID
+}
+
+// ConsumeReply 消费消息的响应结构
+message ConsumeReply {
+  repeated ConsumedMessage messages = 1; // 获取到的消息列表（包含元数据）
+  string error = 2; // 如果消费过程出错，包含错误信息
+  int64 next_offset = 3; // 建议下次消费的起始偏移量（如果消费整个主题）
+}
+
+// StreamConsumeRequest 流式消费请求结构
+message StreamConsumeRequest {
+  string topic = 1; // 要流式消费的主题名称
+  int64 offset = 2; // 消费的起始偏移量
+  string group = 3; // 消费组名称
+  int32 partition = 4; // 新增: 可选, 目标特定分区 ID, 默认消费所有分区
+  int32 max_batch_size = 5; // 新增: 可选, 控制每次流式响应的最大消息数
+  int32 max_wait_ms = 6;    // 新增: 可选, 控制服务器等待批次满足的最长时间(毫秒)
+}
+
+// CommitOffsetRequest 提交消费位点请求
+message CommitOffsetRequest {
+  string topic = 1; // 主题名称
+  string group = 2; // 消费组名称
+  int64 offset = 3; // 要提交的偏移量
+  int32 partition = 4; // 新增: 可选, 提交特定分区的位点, 默认作用于该 group 在 topic 上的所有分区(如果适用)
+}
+
+// CommitOffsetReply 提交消费位点响应
+message CommitOffsetReply {
+  bool success = 1; // 操作是否成功
+  string error = 2; // 如果失败，包含错误信息
+}
+
+// --- 主题管理相关 --- //
+
+// CreateTopicRequest 创建主题的请求结构
+message CreateTopicRequest {
+  string topic = 1; // 要创建的主题名称
+  int32 partitions = 2; // 主题的分区数量
+  int32 replication_factor = 3; // 副本因子
+  int64 retention_ms = 4; // 消息保留时长（毫秒），0 表示不限
+  map<string, string> config = 5; // 其他主题配置项
+}
+
+// CreateTopicReply 创建主题的响应结构
+message CreateTopicReply {
+  bool success = 1; // 操作是否成功
+  string error = 2; // 如果失败，包含错误信息
+}
+
+// DeleteTopicRequest 删除主题的请求结构
+message DeleteTopicRequest {
+  string topic = 1; // 要删除的主题名称
+}
+
+// DeleteTopicReply 删除主题的响应结构
+message DeleteTopicReply {
+  bool success = 1; // 操作是否成功
+  string error = 2; // 如果失败，包含错误信息
+}
+
+// ListTopicsRequest 获取主题列表的请求结构
+message ListTopicsRequest {}
+
+// ListTopicsReply 获取主题列表的响应结构
+message ListTopicsReply {
+  repeated string topics = 1; // 主题名称列表
+}
+
+// DescribeTopicRequest 获取主题详情的请求结构
+message DescribeTopicRequest {
+  string topic = 1; // 要查询的主题名称
+}
+
+// 新增: PartitionInfo 分区信息
+message PartitionInfo {
+  int32 partition_id = 1; // 分区 ID
+  int64 leader_id = 2; // Leader 副本所在的 Broker ID (或其他标识符)
+  repeated int64 replica_ids = 3; // 所有副本所在的 Broker ID 列表
+  repeated int64 isr_ids = 4; // In-Sync Replicas (ISR) 列表
+  int64 high_watermark = 5; // 最高水位线
+  int64 log_start_offset = 6; // 最早可用偏移量
+}
+
+// DescribeTopicReply 获取主题详情的响应结构
+message DescribeTopicReply {
+  string topic = 1; // 主题名称
+  int64 retention_ms = 2; // 消息保留时长
+  map<string, string> config = 3; // 其他主题配置
+  string error = 4; // 如果查询失败，包含错误信息
+  repeated PartitionInfo partitions = 5; // 新增: 主题的分区详细信息
+}
+
+// --- 消费者组管理相关 (简化) --- //
+
+// ListConsumerGroupsRequest 列出消费组请求
+message ListConsumerGroupsRequest {}
+
+// ConsumerGroupInfo 消费组简要信息 (简化)
+message ConsumerGroupInfo {
+  string group_id = 1; // 消费组 ID
+}
+
+// ListConsumerGroupsReply 列出消费组响应 (简化)
+message ListConsumerGroupsReply {
+  repeated ConsumerGroupInfo groups = 1; // 消费组列表
+  string error = 2; // 如果查询失败，包含错误信息
+}
+
+// DescribeConsumerGroupRequest 获取消费组详情请求
+message DescribeConsumerGroupRequest {
+  string group_id = 1; // 要查询的消费组 ID
+}
+
+// ConsumerGroupOffsetInfo 消费组在特定分区的位点信息
+message ConsumerGroupOffsetInfo {
+  string topic = 1; // 主题名称
+  int32 partition = 2; // 新增: 分区 ID
+  int64 committed_offset = 3; // 已提交的位点
+}
+
+// DescribeConsumerGroupReply 获取消费组详情响应 (简化, 但包含分区位点)
+message DescribeConsumerGroupReply {
+  string group_id = 1; // 消费组 ID
+  repeated ConsumerGroupOffsetInfo offsets = 2; // 各分区消费位点信息
+  string error = 3; // 如果查询失败，包含错误信息
+}
+
+// --- SmartModule 管理相关 --- //
+
+// SmartModuleInput 类型
+enum SmartModuleInput {
+  SMART_MODULE_INPUT_UNKNOWN = 0;
+  SMART_MODULE_INPUT_STREAM = 1; // 用于流处理
+  SMART_MODULE_INPUT_TABLE = 2; // 用于表处理 (如果支持)
+}
+
+// SmartModuleOutput 类型
+enum SmartModuleOutput {
+  SMART_MODULE_OUTPUT_UNKNOWN = 0;
+  SMART_MODULE_OUTPUT_STREAM = 1;
+  SMART_MODULE_OUTPUT_TABLE = 2;
+}
+
+// SmartModuleParameter 参数定义
+message SmartModuleParameter {
+  string name = 1; // 参数名
+  string description = 2; // 参数描述
+  bool optional = 3; // 是否可选
+}
+
+// SmartModuleSpec SmartModule 规格定义
+message SmartModuleSpec {
+  string name = 1; // SmartModule 名称 (唯一)
+  SmartModuleInput input_kind = 2; // 输入类型
+  SmartModuleOutput output_kind = 3; // 输出类型
+  repeated SmartModuleParameter parameters = 4; // 参数列表
+  string description = 5; // 新增: SmartModule 描述
+  string version = 6;     // 新增: SmartModule 版本
+}
+
+// CreateSmartModuleRequest 创建 SmartModule 请求
+message CreateSmartModuleRequest {
+  SmartModuleSpec spec = 1; // SmartModule 规格
+  bytes wasm_code = 2; // Wasm 字节码
+}
+
+// CreateSmartModuleReply 创建 SmartModule 响应
+message CreateSmartModuleReply {
+  bool success = 1;
+  string error = 2;
+}
+
+// DeleteSmartModuleRequest 删除 SmartModule 请求
+message DeleteSmartModuleRequest {
+  string name = 1; // 要删除的 SmartModule 名称
+}
+
+// DeleteSmartModuleReply 删除 SmartModule 响应
+message DeleteSmartModuleReply {
+  bool success = 1;
+  string error = 2;
+}
+
+// ListSmartModulesRequest 列出 SmartModule 请求
+message ListSmartModulesRequest {}
+
+// ListSmartModulesReply 列出 SmartModule 响应
+message ListSmartModulesReply {
+  repeated SmartModuleSpec modules = 1; // SmartModule 列表
+  string error = 2;
+}
+
+// 新增: DescribeSmartModuleRequest 获取 SmartModule 详情请求
+message DescribeSmartModuleRequest {
+    string name = 1; // 要查询的 SmartModule 名称
+}
+
+// 新增: DescribeSmartModuleReply 获取 SmartModule 详情响应
+message DescribeSmartModuleReply {
+    SmartModuleSpec spec = 1; // SmartModule 规格
+    // 可以添加其他状态信息, 如创建时间、使用情况等
+    string error = 2; // 如果查询失败
+}
+
+// 新增: UpdateSmartModuleRequest 更新 SmartModule 请求
+message UpdateSmartModuleRequest {
+    string name = 1; // 要更新的 SmartModule 名称
+    SmartModuleSpec spec = 2; // 可选: 更新规格 (部分或全部)
+    bytes wasm_code = 3; // 可选: 更新 Wasm 代码
+}
+
+// 新增: UpdateSmartModuleReply 更新 SmartModule 响应
+message UpdateSmartModuleReply {
+    bool success = 1;
+    string error = 2;
+}
+
+// --- 管理和监控相关 (FluvioAdminService) --- //
+
+// DescribeClusterRequest 获取集群状态请求
+message DescribeClusterRequest {}
+
+// DescribeClusterReply 获取集群状态响应 (占位符)
+message DescribeClusterReply {
+  string status = 1; // 例如: "Healthy", "Degraded"
+  int32 controller_id = 2; // 控制器节点 ID
+  string error = 3;
+}
+
+// ListBrokersRequest 列出 Broker 请求
+message ListBrokersRequest {}
+
+// BrokerInfo Broker 节点信息 (占位符)
+message BrokerInfo {
+  int64 id = 1;
+  string addr = 2; // Broker 地址
+  string status = 3; // 例如: "Online", "Offline"
+}
+
+// ListBrokersReply 列出 Broker 响应
+message ListBrokersReply {
+  repeated BrokerInfo brokers = 1;
+  string error = 2;
+}
+
+// GetMetricsRequest 获取指标请求 (占位符)
+message GetMetricsRequest {
+  repeated string metric_names = 1; // 指定要获取的指标名称 (可选)
+  map<string, string> labels = 2; // 指定过滤标签 (可选)
+}
+
+// Metric 指标信息 (占位符)
+message Metric {
+  string name = 1;
+  map<string, string> labels = 2;
+  double value = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}
+
+// GetMetricsReply 获取指标响应
+message GetMetricsReply {
+  repeated Metric metrics = 1;
+  string error = 2;
+}
+
+// --- 其他 --- //
+
+// HealthCheckRequest 健康检查请求结构
+message HealthCheckRequest {}
+
+// HealthCheckReply 健康检查响应结构
+message HealthCheckReply {
+  bool ok = 1; // 服务是否健康
+  string message = 2; // 额外的健康状态消息
+} 
