@@ -331,6 +331,7 @@ go test ./tests/...
 ## 📚 文档
 
 - 🚀 **[快速入门](QUICKSTART.md)** - 5分钟快速上手指南
+- 📋 **[使用方法](HOW_TO_USE.md)** - 详细的导入、创建客户端和配置说明
 - 📖 **[完整使用指南](USAGE.md)** - 详细的API文档和使用示例
-- 🔧 **[配置指南](examples/config-usage/)** - 各种配置方式和最佳实践
+- 🔧 **[配置示例](examples/config-example.json)** - 配置文件示例
 - 💡 **[示例代码](examples/)** - 基本、高级和集成测试示例
