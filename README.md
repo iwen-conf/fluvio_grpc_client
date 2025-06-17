@@ -113,7 +113,7 @@ import (
 func main() {
     // 创建客户端
     client, err := fluvio.New(
-        fluvio.WithServer("localhost", 50051),
+        fluvio.WithServer("101.43.173.154", 50051),
         fluvio.WithTimeout(5*time.Second, 10*time.Second),
         fluvio.WithLogLevel(fluvio.LevelInfo),
     )
@@ -163,7 +163,7 @@ client, err := fluvio.New()
 
 // 使用自定义配置
 client, err := fluvio.New(
-    fluvio.WithServer("localhost", 50051),
+    fluvio.WithServer("101.43.173.154", 50051),
     fluvio.WithTimeout(5*time.Second, 10*time.Second),
     fluvio.WithLogLevel(fluvio.LevelInfo),
     fluvio.WithMaxRetries(3),
@@ -175,7 +175,7 @@ cfg, err := fluvio.LoadConfigFromFile("config.json")
 client, err := fluvio.NewWithConfig(cfg)
 
 // 快速连接
-client, err := fluvio.QuickStart("localhost", 50051)
+client, err := fluvio.QuickStart("101.43.173.154", 50051)
 ```
 
 ### 消息生产
@@ -320,16 +320,10 @@ go test ./tests/...
 
 如有任何问题或建议，请通过 [issues](https://github.com/iwen-conf/fluvio_grpc_client/issues) 页面与我们联系。
 
-## 交互式命令行
+## 特性
 
-本客户端提供了交互式命令行界面，支持以下命令：
-
-- `help` - 显示帮助信息
-- `produce <消息内容>` - 生产单条消息
-- `batch_produce <消息1,消息2,...>` - 批量生产消息
-- `consume` - 消费消息
-- `health` - 健康检查
-- `topics` - 列出所有主题
-- `create_topic <主题名> <分区数>` - 创建主题
-- `delete_topic <主题名>` - 删除主题
-- `exit` 或 `quit` - 退出程序
+- **简单易用**: 提供简洁的API接口，快速上手
+- **高性能**: 内置连接池和重试机制，支持高并发
+- **类型安全**: 完整的类型定义，编译时错误检查
+- **可扩展**: 分层架构设计，支持自定义扩展
+- **完整文档**: 丰富的示例和API文档

@@ -15,7 +15,7 @@ func main() {
 
 	// 创建客户端
 	client, err := fluvio.New(
-		fluvio.WithServer("localhost", 50051),
+		fluvio.WithServer("101.43.173.154", 50051),
 		fluvio.WithTimeout(5*time.Second, 30*time.Second),
 		fluvio.WithLogLevel(fluvio.LevelInfo),
 		fluvio.WithMaxRetries(3),

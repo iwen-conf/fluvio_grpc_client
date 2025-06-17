@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/iwen-conf/fluvio_grpc_client"
+	fluvio "github.com/iwen-conf/fluvio_grpc_client"
 )
 
 func main() {
@@ -15,7 +15,7 @@ func main() {
 	// 测试客户端创建
 	fmt.Println("1. 测试客户端创建...")
 	client, err := fluvio.New(
-		fluvio.WithServer("localhost", 50051),
+		fluvio.WithServer("101.43.173.154", 50051),
 		fluvio.WithTimeout(5*time.Second, 10*time.Second),
 		fluvio.WithLogLevel(fluvio.LevelInfo),
 	)
@@ -33,7 +33,7 @@ func main() {
 	err = client.HealthCheck(ctx)
 	if err != nil {
 		log.Printf("❌ 健康检查失败: %v", err)
-		fmt.Println("⚠️  请确保Fluvio服务正在运行在localhost:50051")
+		fmt.Println("⚠️  请确保Fluvio服务正在运行在101.43.173.154:50051")
 		return
 	}
 	fmt.Println("✅ 健康检查成功")
@@ -53,7 +53,7 @@ func main() {
 	if err != nil {
 		log.Printf("❌ 获取集群信息失败: %v", err)
 	} else {
-		fmt.Printf("✅ 集群信息获取成功: 状态=%s, 控制器ID=%d\n", 
+		fmt.Printf("✅ 集群信息获取成功: 状态=%s, 控制器ID=%d\n",
 			clusterResult.Cluster.Status, clusterResult.Cluster.ControllerID)
 	}
 

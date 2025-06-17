@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iwen-conf/fluvio_grpc_client"
+	fluvio "github.com/iwen-conf/fluvio_grpc_client"
 )
 
 func main() {
 	// 创建高性能客户端
-	client, err := fluvio.HighThroughputClient("localhost", 50051)
+	client, err := fluvio.HighThroughputClient("101.43.173.154", 50051)
 	if err != nil {
 		log.Fatal("创建客户端失败:", err)
 	}
@@ -103,14 +103,14 @@ func demonstrateAdvancedProducer(ctx context.Context, client *fluvio.Client) {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			resultChan := client.Producer().ProduceAsync(ctx, 
-				fmt.Sprintf("异步消息 #%d", id+1), 
+			resultChan := client.Producer().ProduceAsync(ctx,
+				fmt.Sprintf("异步消息 #%d", id+1),
 				fluvio.ProduceOptions{
-					Topic: "advanced-topic-2",
-					Key:   fmt.Sprintf("async-key-%d", id),
+					Topic:   "advanced-topic-2",
+					Key:     fmt.Sprintf("async-key-%d", id),
 					Headers: map[string]string{"type": "async"},
 				})
-			
+
 			result := <-resultChan
 			if result.Error != nil {
 				log.Printf("异步生产消息 %d 失败: %v", id+1, result.Error)
@@ -191,14 +191,14 @@ func demonstrateStreamConsumer(ctx context.Context, client *fluvio.Client) {
 
 func demonstrateConcurrentOperations(ctx context.Context, client *fluvio.Client) {
 	var wg sync.WaitGroup
-	
+
 	// 并发生产者
 	for i := 0; i < 3; i++ {
 		wg.Add(1)
 		go func(producerID int) {
 			defer wg.Done()
 			for j := 0; j < 5; j++ {
-				_, err := client.Producer().Produce(ctx, 
+				_, err := client.Producer().Produce(ctx,
 					fmt.Sprintf("并发消息 P%d-M%d", producerID, j+1),
 					fluvio.ProduceOptions{
 						Topic: "advanced-topic-3",

@@ -6,13 +6,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/iwen-conf/fluvio_grpc_client"
+	fluvio "github.com/iwen-conf/fluvio_grpc_client"
 )
 
 func main() {
 	// 创建客户端
 	client, err := fluvio.New(
-		fluvio.WithServer("localhost", 50051),
+		fluvio.WithServer("101.43.173.154", 50051),
 		fluvio.WithTimeout(5*time.Second, 10*time.Second),
 		fluvio.WithLogLevel(fluvio.LevelInfo),
 	)
@@ -92,7 +92,7 @@ func main() {
 	if err != nil {
 		log.Printf("获取集群信息失败: %v", err)
 	} else {
-		fmt.Printf("✓ 集群状态: %s, 控制器ID: %d\n", 
+		fmt.Printf("✓ 集群状态: %s, 控制器ID: %d\n",
 			clusterResult.Cluster.Status, clusterResult.Cluster.ControllerID)
 	}
 
