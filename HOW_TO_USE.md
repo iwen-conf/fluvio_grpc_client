@@ -28,30 +28,6 @@ go get github.com/iwen-conf/fluvio_grpc_client
 
 ## 🚀 创建客户端
 
-### 方法1: 使用默认配置
-
-```go
-package main
-
-import (
-    "log"
-    "github.com/iwen-conf/fluvio_grpc_client"
-)
-
-func main() {
-    // 使用默认配置创建客户端
-    client, err := fluvio.New()
-    if err != nil {
-        log.Fatal("创建客户端失败:", err)
-    }
-    defer client.Close()
-    
-    // 客户端已就绪，可以使用
-}
-```
-
-### 方法2: 使用自定义配置
-
 ```go
 package main
 
@@ -72,106 +48,6 @@ func main() {
     )
     if err != nil {
         log.Fatal("创建客户端失败:", err)
-    }
-    defer client.Close()
-}
-```
-
-### 方法3: 使用配置文件
-
-```go
-package main
-
-import (
-    "log"
-    "github.com/iwen-conf/fluvio_grpc_client"
-)
-
-func main() {
-    // 从配置文件加载配置
-    cfg, err := fluvio.LoadConfigFromFile("config.json")
-    if err != nil {
-        log.Fatal("加载配置文件失败:", err)
-    }
-    
-    // 使用配置创建客户端
-    client, err := fluvio.NewWithConfig(cfg)
-    if err != nil {
-        log.Fatal("创建客户端失败:", err)
-    }
-    defer client.Close()
-}
-```
-
-配置文件示例 (`config.json`):
-```json
-{
-  "server": {
-    "host": "101.43.173.154",
-    "port": 50051,
-    "tls": {
-      "enabled": false
-    }
-  },
-  "connection": {
-    "connect_timeout": "5s",
-    "call_timeout": "30s",
-    "max_retries": 3,
-    "pool_size": 5
-  },
-  "logging": {
-    "level": "info",
-    "format": "text",
-    "output": "stdout"
-  }
-}
-```
-
-### 方法4: 使用环境变量
-
-```bash
-# 设置环境变量
-export FLUVIO_HOST=101.43.173.154
-export FLUVIO_PORT=50051
-export FLUVIO_LOG_LEVEL=info
-export FLUVIO_MAX_RETRIES=3
-```
-
-```go
-package main
-
-import (
-    "log"
-    "github.com/iwen-conf/fluvio_grpc_client"
-)
-
-func main() {
-    // 从环境变量加载配置
-    cfg := fluvio.LoadConfigFromEnv()
-    
-    client, err := fluvio.NewWithConfig(cfg)
-    if err != nil {
-        log.Fatal("创建客户端失败:", err)
-    }
-    defer client.Close()
-}
-```
-
-### 方法5: 快速连接
-
-```go
-package main
-
-import (
-    "log"
-    "github.com/iwen-conf/fluvio_grpc_client"
-)
-
-func main() {
-    // 快速连接到指定服务器
-    client, err := fluvio.QuickStart("101.43.173.154", 50051)
-    if err != nil {
-        log.Fatal("快速连接失败:", err)
     }
     defer client.Close()
 }
