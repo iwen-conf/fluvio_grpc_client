@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/iwen-conf/fluvio_grpc_client/config"
 	"github.com/iwen-conf/fluvio_grpc_client/errors"
@@ -38,7 +37,7 @@ func NewConnectionManager(cfg *config.Config, log logger.Logger) *ConnectionMana
 // GetConnection 获取连接
 func (cm *ConnectionManager) GetConnection(ctx context.Context) (*grpc.ClientConn, error) {
 	serverAddr := fmt.Sprintf("%s:%d", cm.config.Server.Host, cm.config.Server.Port)
-	
+
 	cm.mu.RLock()
 	conn, exists := cm.conns[serverAddr]
 	cm.mu.RUnlock()
@@ -166,7 +165,7 @@ func (cm *ConnectionManager) Close() error {
 	var lastErr error
 	for addr, conn := range cm.conns {
 		if err := conn.Close(); err != nil {
-			cm.logger.Error("关闭连接失败", 
+			cm.logger.Error("关闭连接失败",
 				logger.Field{Key: "address", Value: addr},
 				logger.Field{Key: "error", Value: err})
 			lastErr = err

@@ -1,8 +1,8 @@
-# Fluvio gRPC 客户端
+# Fluvio Go SDK
 
 ## 项目简介
 
-Fluvio gRPC 客户端是一个基于 Go 语言的工具，用于与 Fluvio 消息流处理系统进行交互。该客户端通过 gRPC 协议提供了丰富的功能，包括消息的生产和消费、主题管理、消费者组管理、SmartModule 管理以及集群管理等功能。客户端提供了交互式命令行界面，方便用户进行操作。
+Fluvio Go SDK 是一个基于 Go 语言的软件开发工具包，用于与 Fluvio 消息流处理系统进行交互。该SDK通过 gRPC 协议提供了丰富的功能，包括消息的生产和消费、主题管理、消费者组管理、SmartModule 管理以及集群管理等功能。SDK采用分层架构设计，提供简单易用的API接口。
 
 ## 功能特性
 
@@ -83,93 +83,193 @@ fluvio_grpc_client/
 
 - Go 1.18 或更高版本
 - 正在运行的 Fluvio 服务实例
-- 依赖库：github.com/iwen-conf/colorprint/clr
 
 ### 安装
 
 ```bash
-git clone github.com/iwen-conf/fluvio_grpc_client
-cd fluvio_grpc_client
-go mod download
+go get github.com/iwen-conf/fluvio_grpc_client
 ```
 
-### 构建
+### 基本使用
 
-```bash
-go build -o fluvio-client ./cmd/client
-```
+```go
+package main
 
-### 运行
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
 
-```bash
-./fluvio-client
-```
+    "github.com/iwen-conf/fluvio_grpc_client"
+)
 
-程序启动后会自动连接到配置文件中指定的服务器，执行健康检查，获取主题列表，并进入交互模式。
+func main() {
+    // 创建客户端
+    client, err := fluvio.New(
+        fluvio.WithServer("localhost", 50051),
+        fluvio.WithTimeout(5*time.Second, 10*time.Second),
+        fluvio.WithLogLevel(fluvio.LevelInfo),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Close()
 
-### 配置
+    // 健康检查
+    ctx := context.Background()
+    err = client.HealthCheck(ctx)
+    if err != nil {
+        log.Fatal("健康检查失败:", err)
+    }
+    fmt.Println("连接成功!")
 
-编辑 `internal/config/config.json` 文件，设置 Fluvio 服务的连接信息：
+    // 生产消息
+    result, err := client.Producer().Produce(ctx, "Hello, Fluvio!", fluvio.ProduceOptions{
+        Topic: "my-topic",
+        Key:   "key1",
+    })
+    if err != nil {
+        log.Fatal("生产消息失败:", err)
+    }
+    fmt.Printf("消息发送成功: %+v\n", result)
 
-```json
-{
-  "server": {
-    "host": "localhost",
-    "port": 50051
-  }
+    // 消费消息
+    messages, err := client.Consumer().Consume(ctx, fluvio.ConsumeOptions{
+        Topic:       "my-topic",
+        Group:       "my-group",
+        MaxMessages: 10,
+    })
+    if err != nil {
+        log.Fatal("消费消息失败:", err)
+    }
+    fmt.Printf("收到 %d 条消息\n", len(messages))
 }
 ```
 
-### 使用示例
+## API 文档
 
-客户端启动后会自动进入交互模式，可以使用以下命令：
+### 客户端创建
 
-#### 生产消息
+```go
+// 使用默认配置
+client, err := fluvio.New()
 
-```bash
-produce Hello, Fluvio!
+// 使用自定义配置
+client, err := fluvio.New(
+    fluvio.WithServer("localhost", 50051),
+    fluvio.WithTimeout(5*time.Second, 10*time.Second),
+    fluvio.WithLogLevel(fluvio.LevelInfo),
+    fluvio.WithMaxRetries(3),
+    fluvio.WithPoolSize(5),
+)
+
+// 使用配置文件
+cfg, err := fluvio.LoadConfigFromFile("config.json")
+client, err := fluvio.NewWithConfig(cfg)
+
+// 快速连接
+client, err := fluvio.QuickStart("localhost", 50051)
 ```
 
-#### 批量生产消息
+### 消息生产
 
-```bash
-batch_produce 消息1,消息2,消息3
+```go
+// 基本生产
+result, err := client.Producer().Produce(ctx, "Hello World", fluvio.ProduceOptions{
+    Topic: "my-topic",
+    Key:   "key1",
+})
+
+// 批量生产
+messages := []fluvio.Message{
+    {Topic: "my-topic", Key: "key1", Value: "message1"},
+    {Topic: "my-topic", Key: "key2", Value: "message2"},
+}
+batchResult, err := client.Producer().ProduceBatch(ctx, messages)
+
+// 异步生产
+resultChan := client.Producer().ProduceAsync(ctx, "Async message", fluvio.ProduceOptions{
+    Topic: "my-topic",
+})
+result := <-resultChan
 ```
 
-#### 消费消息
+### 消息消费
 
-```bash
-consume
+```go
+// 基本消费
+messages, err := client.Consumer().Consume(ctx, fluvio.ConsumeOptions{
+    Topic:       "my-topic",
+    Group:       "my-group",
+    MaxMessages: 10,
+})
+
+// 流式消费
+stream, err := client.Consumer().ConsumeStream(ctx, fluvio.StreamConsumeOptions{
+    Topic: "my-topic",
+    Group: "my-group",
+})
+
+for msg := range stream {
+    if msg.Error != nil {
+        log.Printf("Error: %v", msg.Error)
+        continue
+    }
+    fmt.Printf("Received: %s\n", msg.Message.Value)
+}
+
+// 提交偏移量
+err = client.Consumer().CommitOffset(ctx, fluvio.CommitOffsetOptions{
+    Topic:  "my-topic",
+    Group:  "my-group",
+    Offset: 100,
+})
 ```
 
-#### 健康检查
+### 主题管理
 
-```bash
-health
+```go
+// 列出主题
+topics, err := client.Topic().List(ctx)
+
+// 创建主题
+result, err := client.Topic().Create(ctx, fluvio.CreateTopicOptions{
+    Name:       "new-topic",
+    Partitions: 3,
+})
+
+// 删除主题
+result, err := client.Topic().Delete(ctx, fluvio.DeleteTopicOptions{
+    Name: "old-topic",
+})
+
+// 检查主题是否存在
+exists, err := client.Topic().Exists(ctx, "my-topic")
+
+// 如果不存在则创建
+result, err := client.Topic().CreateIfNotExists(ctx, fluvio.CreateTopicOptions{
+    Name:       "my-topic",
+    Partitions: 1,
+})
 ```
 
-#### 列出主题
+### 管理功能
 
-```bash
-topics
-```
+```go
+// 集群信息
+cluster, err := client.Admin().DescribeCluster(ctx)
 
-#### 创建主题
+// Broker列表
+brokers, err := client.Admin().ListBrokers(ctx)
 
-```bash
-create_topic new-topic 3
-```
+// 获取指标
+metrics, err := client.Admin().GetMetrics(ctx, fluvio.GetMetricsOptions{
+    MetricNames: []string{"cpu", "memory"},
+})
 
-#### 删除主题
-
-```bash
-delete_topic topic-name
-```
-
-#### 退出程序
-
-```bash
-exit
+// SmartModule管理
+smartModules, err := client.Admin().ListSmartModules(ctx)
 ```
 
 或

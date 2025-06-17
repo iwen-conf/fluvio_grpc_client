@@ -47,7 +47,7 @@ func (r *Retryer) RetryWithContext(ctx context.Context, fn RetryableContextFunc)
 
 	for attempt := 0; attempt <= r.config.MaxRetries; attempt++ {
 		if attempt > 0 {
-			r.logger.Debug("重试操作", 
+			r.logger.Debug("重试操作",
 				logger.Field{Key: "attempt", Value: attempt},
 				logger.Field{Key: "backoff", Value: backoff},
 				logger.Field{Key: "last_error", Value: lastErr})
@@ -89,7 +89,7 @@ func (r *Retryer) RetryWithContext(ctx context.Context, fn RetryableContextFunc)
 		}
 	}
 
-	r.logger.Error("重试失败", 
+	r.logger.Error("重试失败",
 		logger.Field{Key: "max_attempts", Value: r.config.MaxRetries + 1},
 		logger.Field{Key: "final_error", Value: lastErr})
 
@@ -216,12 +216,12 @@ func (jb *JitteredBackoff) Next() time.Duration {
 	// 添加随机抖动
 	jitterAmount := float64(baseTime) * jb.jitter
 	jitterTime := time.Duration(jitterAmount * (2*math.Rand() - 1))
-	
+
 	result := baseTime + jitterTime
 	if result < 0 {
 		result = baseTime / 2
 	}
-	
+
 	return result
 }
 

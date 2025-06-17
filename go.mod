@@ -3,7 +3,6 @@ module github.com/iwen-conf/fluvio_grpc_client
 go 1.24
 
 require (
-	github.com/iwen-conf/colorprint v1.0.0
 	google.golang.org/grpc v1.72.0
 	google.golang.org/protobuf v1.36.6
 )
