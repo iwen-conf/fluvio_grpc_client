@@ -1,8 +1,0 @@
-{
-  "server": {
-    "host": "localhost",
-    "port": 50051,
-    "connectTimeout": 5,
-    "callTimeout": 10
-  }
-}
