@@ -53,10 +53,14 @@ func NewWithConfig(cfg *config.Config) (*Client, error) {
 	// 创建连接工厂
 	connFactory := pool.NewFactory(cfg, log)
 
+	// 创建重试器
+	retryer := retry.NewRetryer(&cfg.Retry, log)
+
 	client := &Client{
 		config:      cfg,
 		logger:      log,
 		connFactory: connFactory,
+		retryer:     retryer,
 	}
 
 	// 初始化服务客户端
@@ -198,8 +202,7 @@ func (c *Client) withConnection(ctx context.Context, fn func(*grpc.ClientConn) e
 
 // withRetry 带重试执行操作
 func (c *Client) withRetry(ctx context.Context, fn func(context.Context) error) error {
-	// TODO: 实现重试逻辑
-	return fn(ctx)
+	return c.retryer.RetryWithContext(ctx, fn)
 }
 
 // SetLogger 设置日志器

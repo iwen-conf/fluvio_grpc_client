@@ -3,16 +3,15 @@ package main
 import (
 	"bufio"
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 	"time"
 
+	fluvio "github.com/iwen-conf/fluvio_grpc_client"
 	"github.com/iwen-conf/fluvio_grpc_client/internal/cli"
-	"github.com/iwen-conf/fluvio_grpc_client/internal/client"
-	"github.com/iwen-conf/fluvio_grpc_client/internal/config"
-	pb "github.com/iwen-conf/fluvio_grpc_client/proto/fluvio_service"
 
 	"github.com/iwen-conf/colorprint/clr"
 )
@@ -21,22 +20,63 @@ const (
 	topicName = "test-topic"
 )
 
+var (
+	configFile = flag.String("config", "internal/config/config.json", "配置文件路径")
+	host       = flag.String("host", "localhost", "Fluvio服务器地址")
+	port       = flag.Int("port", 50051, "Fluvio服务器端口")
+	logLevel   = flag.String("log-level", "info", "日志级别 (debug, info, warn, error)")
+)
+
+// parseLogLevel 解析日志级别
+func parseLogLevel(level string) fluvio.Level {
+	switch strings.ToLower(level) {
+	case "debug":
+		return fluvio.LevelDebug
+	case "info":
+		return fluvio.LevelInfo
+	case "warn":
+		return fluvio.LevelWarn
+	case "error":
+		return fluvio.LevelError
+	default:
+		return fluvio.LevelInfo
+	}
+}
+
 func main() {
-	// 1. 加载配置
-	cfg, err := config.Load("internal/config/config.json")
-	if err != nil {
-		log.Fatal("加载配置失败: ", err)
+	flag.Parse()
+
+	// 1. 创建SDK客户端
+	var client *fluvio.Client
+	var err error
+
+	// 优先使用命令行参数
+	if *host != "localhost" || *port != 50051 {
+		client, err = fluvio.ConnectWithAddress(*host, *port,
+			fluvio.WithTimeout(5*time.Second, 10*time.Second),
+			fluvio.WithLogLevel(parseLogLevel(*logLevel)),
+			fluvio.WithMaxRetries(3),
+		)
+	} else {
+		// 尝试从配置文件加载
+		if _, err := os.Stat(*configFile); err == nil {
+			cfg, err := fluvio.LoadConfigFromFile(*configFile)
+			if err != nil {
+				log.Printf("加载配置文件失败，使用默认配置: %v", err)
+				client, err = fluvio.QuickStart("localhost", 50051)
+			} else {
+				client, err = fluvio.NewWithConfig(cfg)
+			}
+		} else {
+			// 使用默认配置
+			client, err = fluvio.QuickStart("localhost", 50051)
+		}
 	}
 
-	// 2. 建立 gRPC 连接
-	conn, err := client.Connect(&cfg.Server)
 	if err != nil {
-		log.Fatal("无法连接 gRPC 服务器: ", err)
+		log.Fatal("无法连接 Fluvio 服务器: ", err)
 	}
-	defer conn.Close()
-
-	// 3. 创建服务客户端
-	fluvioClient := client.NewFluvioServiceClient(conn)
+	defer client.Close()
 
 	// --- 启动时自动健康检查 ---
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
