@@ -50,31 +50,37 @@ Fluvio Go SDK 是一个基于 Go 语言的软件开发工具包，用于与 Fluv
 
 ```
 fluvio_grpc_client/
-├── cmd/                    # 命令行入口
-│   └── client/             # 客户端命令
-│       └── main.go         # 主程序入口
+├── client/                 # 客户端API
+│   ├── admin.go           # 管理功能
+│   ├── consumer.go        # 消费者
+│   ├── producer.go        # 生产者
+│   └── topic.go           # 主题管理
+├── config/                 # 配置管理
+│   ├── config.go          # 配置定义
+│   └── load.go            # 配置加载
+├── errors/                 # 错误定义
+│   └── errors.go          # 错误类型
+├── examples/               # 使用示例
+│   ├── basic/             # 基本示例
+│   ├── advanced/          # 高级示例
+│   └── integration/       # 集成测试
 ├── internal/               # 内部实现
-│   ├── cli/                # 命令行工具
-│   │   ├── handler.go      # 命令处理器
-│   │   └── printer.go      # 输出格式化
-│   ├── client/             # 客户端实现
-│   │   ├── fluvio_admin.go # 管理服务客户端
-│   │   ├── fluvio_service.go # 核心服务客户端
-│   │   └── grpc_client.go  # gRPC 连接管理
-│   └── config/             # 配置管理
-│       ├── config.json     # 配置文件
-│       └── load.go         # 配置加载
+│   ├── grpc/              # gRPC连接管理
+│   ├── pool/              # 连接池
+│   └── retry/             # 重试机制
+├── logger/                 # 日志系统
+│   └── logger.go          # 日志实现
 ├── proto/                  # 协议定义
-│   ├── fluvio_grpc.proto   # gRPC 协议定义
-│   └── fluvio_service/     # 生成的协议代码
-│       ├── fluvio_grpc.pb.go     # 消息定义
-│       └── fluvio_grpc_grpc.pb.go # 服务定义
-├── tests/                  # 测试代码
-│   ├── grpc_health_test.go # 健康检查测试
-│   └── grpc_service_test.go # 服务功能测试
-├── go.mod                  # Go 模块定义
-├── go.sum                  # 依赖校验和
-└── README.md               # 项目说明文档
+│   └── fluvio_service/    # 生成的协议代码
+├── types/                  # 类型定义
+│   ├── admin.go           # 管理类型
+│   ├── consumer.go        # 消费者类型
+│   ├── producer.go        # 生产者类型
+│   └── topic.go           # 主题类型
+├── fluvio.go              # SDK主入口
+├── go.mod                 # Go 模块定义
+├── go.sum                 # 依赖校验和
+└── README.md              # 项目说明文档
 ```
 
 ## 安装与使用

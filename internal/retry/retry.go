@@ -2,7 +2,7 @@ package retry
 
 import (
 	"context"
-	"math"
+	"math/rand/v2"
 	"time"
 
 	"github.com/iwen-conf/fluvio_grpc_client/config"
@@ -215,7 +215,7 @@ func (jb *JitteredBackoff) Next() time.Duration {
 
 	// 添加随机抖动
 	jitterAmount := float64(baseTime) * jb.jitter
-	jitterTime := time.Duration(jitterAmount * (2*math.Rand() - 1))
+	jitterTime := time.Duration(jitterAmount * (2*rand.Float64() - 1))
 
 	result := baseTime + jitterTime
 	if result < 0 {

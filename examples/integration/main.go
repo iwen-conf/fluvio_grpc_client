@@ -6,13 +6,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/iwen-conf/fluvio_grpc_client"
+	fluvio "github.com/iwen-conf/fluvio_grpc_client"
 )
 
 func main() {
 	// 集成测试场景
 	fmt.Println("=== Fluvio Go SDK 集成测试 ===")
-	
+
 	// 创建客户端
 	client, err := fluvio.New(
 		fluvio.WithServer("localhost", 50051),
@@ -115,7 +115,7 @@ func testTopicManagement(ctx context.Context, client *fluvio.Client) error {
 	if err != nil {
 		return fmt.Errorf("列出主题失败: %w", err)
 	}
-	
+
 	found := false
 	for _, topic := range result.Topics {
 		if topic == topicName {
@@ -182,7 +182,7 @@ func testProduceConsume(ctx context.Context, client *fluvio.Client) error {
 	}
 
 	if messages[0].Value != testMessage {
-		return fmt.Errorf("消费到的消息内容不匹配: 期望 '%s', 实际 '%s'", 
+		return fmt.Errorf("消费到的消息内容不匹配: 期望 '%s', 实际 '%s'",
 			testMessage, messages[0].Value)
 	}
 
@@ -242,7 +242,7 @@ func testBatchOperations(ctx context.Context, client *fluvio.Client) error {
 
 func testConsumerGroups(ctx context.Context, client *fluvio.Client) error {
 	// 列出消费组
-	groups, err := client.Consumer().ListGroups(ctx)
+	groups, err := client.Admin().ListConsumerGroups(ctx)
 	if err != nil {
 		return fmt.Errorf("列出消费组失败: %w", err)
 	}
@@ -268,7 +268,7 @@ func testAdminFunctions(ctx context.Context, client *fluvio.Client) error {
 	if err != nil {
 		return fmt.Errorf("获取集群信息失败: %w", err)
 	}
-	fmt.Printf("✓ 集群信息获取成功: 状态=%s, 控制器ID=%d\n", 
+	fmt.Printf("✓ 集群信息获取成功: 状态=%s, 控制器ID=%d\n",
 		cluster.Cluster.Status, cluster.Cluster.ControllerID)
 
 	// 列出Brokers

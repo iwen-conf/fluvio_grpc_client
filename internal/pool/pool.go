@@ -3,31 +3,30 @@ package pool
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/iwen-conf/fluvio_grpc_client/config"
 	"github.com/iwen-conf/fluvio_grpc_client/errors"
-	"github.com/iwen-conf/fluvio_grpc_client/logger"
 	grpcMgr "github.com/iwen-conf/fluvio_grpc_client/internal/grpc"
+	"github.com/iwen-conf/fluvio_grpc_client/logger"
 
 	"google.golang.org/grpc"
 )
 
 // ConnectionPool 连接池
 type ConnectionPool struct {
-	config    *config.Config
-	logger    logger.Logger
-	connMgr   *grpcMgr.ConnectionManager
-	pool      chan *grpc.ClientConn
-	mu        sync.RWMutex
-	closed    bool
+	config      *config.Config
+	logger      logger.Logger
+	connMgr     *grpcMgr.ConnectionManager
+	pool        chan *grpc.ClientConn
+	mu          sync.RWMutex
+	closed      bool
 	activeConns int
 }
 
 // NewConnectionPool 创建连接池
 func NewConnectionPool(cfg *config.Config, log logger.Logger) *ConnectionPool {
 	connMgr := grpcMgr.NewConnectionManager(cfg, log)
-	
+
 	return &ConnectionPool{
 		config:  cfg,
 		logger:  log,

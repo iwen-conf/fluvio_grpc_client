@@ -2,18 +2,18 @@ package types
 
 // ConsumerGroupInfo 消费者组信息
 type ConsumerGroupInfo struct {
-	Name      string                   `json:"name"`
-	Members   []*ConsumerGroupMember   `json:"members"`
-	Offsets   map[string]int64         `json:"offsets"`
-	Metadata  map[string]string        `json:"metadata"`
+	GroupID  string                 `json:"group_id"`
+	Members  []*ConsumerGroupMember `json:"members"`
+	Offsets  map[string]int64       `json:"offsets"`
+	Metadata map[string]string      `json:"metadata"`
 }
 
 // ConsumerGroupMember 消费者组成员
 type ConsumerGroupMember struct {
-	ID        string   `json:"id"`
-	Host      string   `json:"host"`
-	Topics    []string `json:"topics"`
-	Metadata  map[string]string `json:"metadata"`
+	ID       string            `json:"id"`
+	Host     string            `json:"host"`
+	Topics   []string          `json:"topics"`
+	Metadata map[string]string `json:"metadata"`
 }
 
 // ListConsumerGroupsResult 列出消费者组结果

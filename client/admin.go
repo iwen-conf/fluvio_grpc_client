@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/iwen-conf/fluvio_grpc_client/errors"
 	"github.com/iwen-conf/fluvio_grpc_client/logger"
@@ -92,8 +93,7 @@ func (am *AdminManager) ListBrokers(ctx context.Context) (*types.ListBrokersResu
 		for _, broker := range resp.GetBrokers() {
 			brokerInfo := &types.BrokerInfo{
 				ID:       broker.GetId(),
-				Host:     broker.GetHost(),
-				Port:     broker.GetPort(),
+				Addr:     broker.GetAddr(),
 				Status:   broker.GetStatus(),
 				Metadata: make(map[string]string),
 			}
@@ -148,12 +148,15 @@ func (am *AdminManager) GetMetrics(ctx context.Context, opts types.GetMetricsOpt
 		// 转换指标信息
 		var metrics []*types.MetricInfo
 		for _, metric := range resp.GetMetrics() {
+			var timestamp int64
+			if metric.GetTimestamp() != nil {
+				timestamp = metric.GetTimestamp().Seconds
+			}
 			metricInfo := &types.MetricInfo{
 				Name:      metric.GetName(),
 				Value:     metric.GetValue(),
-				Unit:      metric.GetUnit(),
 				Labels:    metric.GetLabels(),
-				Timestamp: metric.GetTimestamp(),
+				Timestamp: timestamp,
 			}
 			metrics = append(metrics, metricInfo)
 		}
@@ -201,26 +204,10 @@ func (am *AdminManager) ListConsumerGroups(ctx context.Context) (*types.ListCons
 		var groups []*types.ConsumerGroupInfo
 		for _, group := range resp.GetGroups() {
 			groupInfo := &types.ConsumerGroupInfo{
-				Name:     group.GetName(),
+				GroupID:  group.GetGroupId(),
 				Members:  []*types.ConsumerGroupMember{},
 				Offsets:  make(map[string]int64),
 				Metadata: make(map[string]string),
-			}
-
-			// 转换成员信息
-			for _, member := range group.GetMembers() {
-				memberInfo := &types.ConsumerGroupMember{
-					ID:       member.GetId(),
-					Host:     member.GetHost(),
-					Topics:   member.GetTopics(),
-					Metadata: make(map[string]string),
-				}
-				groupInfo.Members = append(groupInfo.Members, memberInfo)
-			}
-
-			// 转换偏移量信息
-			for topic, offset := range group.GetOffsets() {
-				groupInfo.Offsets[topic] = offset
 			}
 
 			groups = append(groups, groupInfo)
@@ -259,7 +246,7 @@ func (am *AdminManager) DescribeConsumerGroup(ctx context.Context, groupName str
 	}
 
 	req := &pb.DescribeConsumerGroupRequest{
-		Group: groupName,
+		GroupId: groupName,
 	}
 
 	am.client.logger.Debug("描述消费者组", logger.Field{Key: "group", Value: groupName})
@@ -278,31 +265,17 @@ func (am *AdminManager) DescribeConsumerGroup(ctx context.Context, groupName str
 		}
 
 		// 转换消费者组信息
-		var groupInfo *types.ConsumerGroupInfo
-		if resp.GetGroup() != nil {
-			group := resp.GetGroup()
-			groupInfo = &types.ConsumerGroupInfo{
-				Name:     group.GetName(),
-				Members:  []*types.ConsumerGroupMember{},
-				Offsets:  make(map[string]int64),
-				Metadata: make(map[string]string),
-			}
+		groupInfo := &types.ConsumerGroupInfo{
+			GroupID:  resp.GetGroupId(),
+			Members:  []*types.ConsumerGroupMember{},
+			Offsets:  make(map[string]int64),
+			Metadata: make(map[string]string),
+		}
 
-			// 转换成员信息
-			for _, member := range group.GetMembers() {
-				memberInfo := &types.ConsumerGroupMember{
-					ID:       member.GetId(),
-					Host:     member.GetHost(),
-					Topics:   member.GetTopics(),
-					Metadata: make(map[string]string),
-				}
-				groupInfo.Members = append(groupInfo.Members, memberInfo)
-			}
-
-			// 转换偏移量信息
-			for topic, offset := range group.GetOffsets() {
-				groupInfo.Offsets[topic] = offset
-			}
+		// 转换偏移量信息
+		for _, offsetInfo := range resp.GetOffsets() {
+			key := fmt.Sprintf("%s-%d", offsetInfo.GetTopic(), offsetInfo.GetPartition())
+			groupInfo.Offsets[key] = offsetInfo.GetCommittedOffset()
 		}
 
 		result = &types.DescribeConsumerGroupResult{

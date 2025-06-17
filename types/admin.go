@@ -10,9 +10,8 @@ type ClusterInfo struct {
 
 // BrokerInfo Broker信息
 type BrokerInfo struct {
-	ID       int32             `json:"id"`
-	Host     string            `json:"host"`
-	Port     int32             `json:"port"`
+	ID       int64             `json:"id"`
+	Addr     string            `json:"addr"`
 	Status   string            `json:"status"`
 	Metadata map[string]string `json:"metadata"`
 }
@@ -21,7 +20,6 @@ type BrokerInfo struct {
 type MetricInfo struct {
 	Name      string            `json:"name"`
 	Value     float64           `json:"value"`
-	Unit      string            `json:"unit"`
 	Labels    map[string]string `json:"labels"`
 	Timestamp int64             `json:"timestamp"`
 }
