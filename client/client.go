@@ -7,8 +7,9 @@ import (
 
 	"github.com/iwen-conf/fluvio_grpc_client/config"
 	"github.com/iwen-conf/fluvio_grpc_client/errors"
-	"github.com/iwen-conf/fluvio_grpc_client/logger"
 	"github.com/iwen-conf/fluvio_grpc_client/internal/pool"
+	"github.com/iwen-conf/fluvio_grpc_client/internal/retry"
+	"github.com/iwen-conf/fluvio_grpc_client/logger"
 	pb "github.com/iwen-conf/fluvio_grpc_client/proto/fluvio_service"
 
 	"google.golang.org/grpc"
@@ -16,16 +17,17 @@ import (
 
 // Client 是Fluvio gRPC客户端的主要入口点
 type Client struct {
-	config     *config.Config
-	logger     logger.Logger
+	config      *config.Config
+	logger      logger.Logger
 	connFactory pool.ConnectionFactory
-	
+	retryer     *retry.Retryer
+
 	// 服务客户端
 	producer *Producer
 	consumer *Consumer
 	topic    *TopicManager
 	admin    *AdminManager
-	
+
 	// 内部状态
 	mu     sync.RWMutex
 	closed bool
@@ -35,7 +37,7 @@ type Client struct {
 func New(opts ...config.Option) (*Client, error) {
 	cfg := config.DefaultConfig()
 	config.ApplyOptions(cfg, opts...)
-	
+
 	return NewWithConfig(cfg)
 }
 
@@ -99,7 +101,7 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 	defer conn.Close()
 
 	client := pb.NewFluvioServiceClient(conn.GetConn())
-	
+
 	resp, err := client.HealthCheck(ctx, &pb.HealthCheckRequest{})
 	if err != nil {
 		return errors.Wrap(errors.ErrServiceUnavailable, "健康检查失败", err)
@@ -122,7 +124,7 @@ func (c *Client) Close() error {
 	}
 
 	c.closed = true
-	
+
 	if c.connFactory != nil {
 		return c.connFactory.Close()
 	}
@@ -143,7 +145,7 @@ func (c *Client) GetLogger() logger.Logger {
 // GetStats 获取客户端统计信息
 func (c *Client) GetStats() ClientStats {
 	stats := c.connFactory.GetStats()
-	
+
 	return ClientStats{
 		ConnectionPool: ConnectionPoolStats{
 			PoolSize:    stats.PoolSize,
@@ -212,10 +214,10 @@ func (c *Client) Ping(ctx context.Context) (time.Duration, error) {
 	start := time.Now()
 	err := c.HealthCheck(ctx)
 	duration := time.Since(start)
-	
+
 	if err != nil {
 		return 0, err
 	}
-	
+
 	return duration, nil
 }

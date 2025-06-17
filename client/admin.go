@@ -342,7 +342,7 @@ func (am *AdminManager) CreateSmartModule(ctx context.Context, opts types.Create
 	spec := &pb.SmartModuleSpec{
 		Name:        opts.Name,
 		Description: opts.Description,
-		Metadata:    opts.Metadata,
+		Version:     "1.0.0", // 默认版本
 	}
 
 	req := &pb.CreateSmartModuleRequest{
@@ -460,12 +460,12 @@ func (am *AdminManager) ListSmartModules(ctx context.Context) (*types.ListSmartM
 
 		// 转换SmartModule信息
 		var smartModules []*types.SmartModuleInfo
-		for _, sm := range resp.GetSmartModules() {
+		for _, sm := range resp.GetModules() {
 			smInfo := &types.SmartModuleInfo{
 				Name:        sm.GetName(),
 				Version:     sm.GetVersion(),
 				Description: sm.GetDescription(),
-				Metadata:    sm.GetMetadata(),
+				Metadata:    make(map[string]string), // 初始化空的metadata
 			}
 			smartModules = append(smartModules, smInfo)
 		}
@@ -523,13 +523,13 @@ func (am *AdminManager) DescribeSmartModule(ctx context.Context, name string) (*
 
 		// 转换SmartModule信息
 		var smInfo *types.SmartModuleInfo
-		if resp.GetSmartModule() != nil {
-			sm := resp.GetSmartModule()
+		if resp.GetSpec() != nil {
+			sm := resp.GetSpec()
 			smInfo = &types.SmartModuleInfo{
 				Name:        sm.GetName(),
 				Version:     sm.GetVersion(),
 				Description: sm.GetDescription(),
-				Metadata:    sm.GetMetadata(),
+				Metadata:    make(map[string]string), // 初始化空的metadata
 			}
 		}
 
