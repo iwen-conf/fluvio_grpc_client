@@ -32,6 +32,14 @@ service FluvioService {
   rpc DescribeSmartModule(DescribeSmartModuleRequest) returns (DescribeSmartModuleReply); // 新增: 获取 SmartModule 详情
   rpc UpdateSmartModule(UpdateSmartModuleRequest) returns (UpdateSmartModuleReply); // 新增: 更新 SmartModule
 
+  // 高级功能
+  rpc FilteredConsume(FilteredConsumeRequest) returns (FilteredConsumeReply); // 过滤消费
+  rpc BulkDelete(BulkDeleteRequest) returns (BulkDeleteReply); // 批量删除
+  rpc GetTopicStats(GetTopicStatsRequest) returns (GetTopicStatsReply); // 获取主题统计信息
+  rpc GetStorageStatus(GetStorageStatusRequest) returns (GetStorageStatusReply); // 获取存储状态
+  rpc MigrateStorage(MigrateStorageRequest) returns (MigrateStorageReply); // 存储迁移
+  rpc GetStorageMetrics(GetStorageMetricsRequest) returns (GetStorageMetricsReply); // 获取存储指标
+
   // 其他
   rpc HealthCheck(HealthCheckRequest) returns (HealthCheckReply);
 }
@@ -362,10 +370,232 @@ message GetMetricsReply {
 // --- 其他 --- //
 
 // HealthCheckRequest 健康检查请求结构
-message HealthCheckRequest {}
+message HealthCheckRequest {
+  bool detailed = 1; // 是否返回详细的健康检查信息，默认false
+}
+
+// 健康状态枚举
+enum HealthStatus {
+  UNKNOWN = 0;
+  HEALTHY = 1;
+  DEGRADED = 2; // 部分功能不可用但核心功能正常
+  UNHEALTHY = 3;
+}
+
+// 组件健康状态
+message ComponentHealth {
+  string name = 1; // 组件名称
+  HealthStatus status = 2; // 组件状态
+  string message = 3; // 状态描述
+  int64 response_time_ms = 4; // 响应时间（毫秒）
+}
 
 // HealthCheckReply 健康检查响应结构
 message HealthCheckReply {
-  bool ok = 1; // 服务是否健康
-  string message = 2; // 额外的健康状态消息
-} 
+  bool ok = 1; // 服务是否健康（向后兼容）
+  string message = 2; // 额外的健康状态消息（向后兼容）
+  HealthStatus status = 3; // 详细健康状态
+  google.protobuf.Timestamp timestamp = 4; // 检查时间戳
+  repeated ComponentHealth components = 5; // 各组件健康状态
+}
+
+// --- 高级功能 --- //
+
+// 消息过滤器类型
+enum FilterType {
+  FILTER_TYPE_UNKNOWN = 0;
+  FILTER_TYPE_KEY = 1; // 按消息键过滤
+  FILTER_TYPE_HEADER = 2; // 按消息头过滤
+  FILTER_TYPE_CONTENT = 3; // 按消息内容过滤
+  FILTER_TYPE_TIMESTAMP = 4; // 按时间戳过滤
+}
+
+// 过滤条件
+message FilterCondition {
+  FilterType type = 1; // 过滤类型
+  string field = 2; // 过滤字段（对于header和content过滤）
+  string operator = 3; // 操作符：eq, ne, contains, starts_with, ends_with, gt, lt, gte, lte
+  string value = 4; // 过滤值
+}
+
+// 过滤消费请求
+message FilteredConsumeRequest {
+  string topic = 1; // 目标主题名称
+  int32 max_messages = 2; // 本次请求最多消费的消息数量
+  int64 offset = 3; // 消费的起始偏移量
+  string group = 4; // 消费组名称
+  int32 partition = 5; // 目标特定分区 ID
+  repeated FilterCondition filters = 6; // 过滤条件列表
+  bool and_logic = 7; // true为AND逻辑，false为OR逻辑，默认true
+}
+
+// 过滤消费响应
+message FilteredConsumeReply {
+  repeated ConsumedMessage messages = 1; // 过滤后的消息列表
+  string error = 2; // 如果消费过程出错，包含错误信息
+  int64 next_offset = 3; // 建议下次消费的起始偏移量
+  int32 total_scanned = 4; // 总共扫描的消息数量
+  int32 filtered_count = 5; // 过滤后的消息数量
+}
+
+// 批量删除请求
+message BulkDeleteRequest {
+  repeated string topics = 1; // 要删除的主题列表
+  repeated string consumer_groups = 2; // 要删除的消费者组列表
+  repeated string smart_modules = 3; // 要删除的SmartModule列表
+  bool force = 4; // 是否强制删除（忽略依赖检查）
+}
+
+// 批量删除结果
+message BulkDeleteResult {
+  string name = 1; // 资源名称
+  string type = 2; // 资源类型：topic, consumer_group, smart_module
+  bool success = 3; // 是否删除成功
+  string error = 4; // 如果失败，包含错误信息
+}
+
+// 批量删除响应
+message BulkDeleteReply {
+  repeated BulkDeleteResult results = 1; // 删除结果列表
+  int32 total_requested = 2; // 总共请求删除的资源数量
+  int32 successful_deletes = 3; // 成功删除的资源数量
+  int32 failed_deletes = 4; // 删除失败的资源数量
+}
+
+// 获取主题统计信息请求
+message GetTopicStatsRequest {
+  string topic = 1; // 主题名称，为空则获取所有主题统计
+  bool include_partitions = 2; // 是否包含分区级别的统计信息
+}
+
+// 分区统计信息
+message PartitionStats {
+  int32 partition_id = 1; // 分区ID
+  int64 message_count = 2; // 消息总数
+  int64 total_size_bytes = 3; // 总大小（字节）
+  int64 earliest_offset = 4; // 最早偏移量
+  int64 latest_offset = 5; // 最新偏移量
+  google.protobuf.Timestamp last_updated = 6; // 最后更新时间
+}
+
+// 主题统计信息
+message TopicStats {
+  string topic = 1; // 主题名称
+  int32 partition_count = 2; // 分区数量
+  int32 replication_factor = 3; // 副本因子
+  int64 total_message_count = 4; // 总消息数量
+  int64 total_size_bytes = 5; // 总大小（字节）
+  repeated PartitionStats partitions = 6; // 分区统计信息（如果请求包含）
+  google.protobuf.Timestamp created_at = 7; // 创建时间
+  google.protobuf.Timestamp last_updated = 8; // 最后更新时间
+}
+
+// 获取主题统计信息响应
+message GetTopicStatsReply {
+  repeated TopicStats topics = 1; // 主题统计信息列表
+  string error = 2; // 如果查询失败，包含错误信息
+  google.protobuf.Timestamp collected_at = 3; // 统计信息收集时间
+}
+
+// 获取存储状态请求
+message GetStorageStatusRequest {
+  bool include_details = 1; // 是否包含详细信息
+}
+
+// 存储连接统计信息
+message StorageConnectionStats {
+  uint32 current_connections = 1; // 当前连接数
+  uint32 available_connections = 2; // 可用连接数
+  uint32 total_created_connections = 3; // 总创建连接数
+}
+
+// 存储数据库信息
+message StorageDatabaseInfo {
+  string name = 1; // 数据库名称
+  uint32 collections = 2; // 集合数量
+  uint64 data_size = 3; // 数据大小（字节）
+  uint64 storage_size = 4; // 存储大小（字节）
+  uint32 indexes = 5; // 索引数量
+  uint64 index_size = 6; // 索引大小（字节）
+}
+
+// 存储统计信息
+message StorageStats {
+  string storage_type = 1; // 存储类型：memory 或 mongodb
+  uint64 consumer_groups = 2; // 消费者组数量
+  uint64 consumer_offsets = 3; // 消费者偏移量数量
+  uint64 smart_modules = 4; // SmartModule数量
+  string connection_status = 5; // 连接状态
+  StorageConnectionStats connection_stats = 6; // 连接统计（可选）
+  StorageDatabaseInfo database_info = 7; // 数据库信息（可选）
+}
+
+// 获取存储状态响应
+message GetStorageStatusReply {
+  bool persistence_enabled = 1; // 是否启用持久化
+  StorageStats storage_stats = 2; // 存储统计信息
+  string error = 3; // 如果查询失败，包含错误信息
+  google.protobuf.Timestamp checked_at = 4; // 检查时间
+}
+
+// 存储迁移请求
+message MigrateStorageRequest {
+  string source_type = 1; // 源存储类型：memory 或 mongodb
+  string target_type = 2; // 目标存储类型：memory 或 mongodb
+  bool verify_migration = 3; // 是否验证迁移结果
+  bool force_migration = 4; // 是否强制迁移（覆盖目标数据）
+}
+
+// 迁移统计信息
+message MigrationStatsProto {
+  uint64 consumer_groups_migrated = 1; // 迁移的消费者组数量
+  uint64 consumer_offsets_migrated = 2; // 迁移的消费者偏移量数量
+  uint64 smart_modules_migrated = 3; // 迁移的SmartModule数量
+  repeated string errors = 4; // 迁移过程中的错误
+  uint64 total_migrated = 5; // 总迁移项目数
+}
+
+// 存储迁移响应
+message MigrateStorageReply {
+  bool success = 1; // 迁移是否成功
+  MigrationStatsProto migration_stats = 2; // 迁移统计信息
+  bool verification_passed = 3; // 验证是否通过（如果启用验证）
+  string error = 4; // 如果迁移失败，包含错误信息
+  google.protobuf.Timestamp completed_at = 5; // 迁移完成时间
+}
+
+// 获取存储指标请求
+message GetStorageMetricsRequest {
+  bool include_history = 1; // 是否包含历史指标
+  uint32 history_limit = 2; // 历史记录限制数量
+}
+
+// 存储性能指标
+message StorageMetricsProto {
+  string storage_type = 1; // 存储类型
+  uint64 response_time_ms = 2; // 响应时间（毫秒）
+  double operations_per_second = 3; // 每秒操作数
+  double error_rate = 4; // 错误率
+  double connection_pool_usage = 5; // 连接池使用率（百分比）
+  uint64 memory_usage_mb = 6; // 内存使用量（MB）
+  uint64 disk_usage_mb = 7; // 磁盘使用量（MB）
+  google.protobuf.Timestamp last_updated = 8; // 最后更新时间
+}
+
+// 存储健康检查结果
+message StorageHealthCheckResult {
+  string status = 1; // 健康状态：healthy, warning, critical, unknown
+  uint64 response_time_ms = 2; // 响应时间（毫秒）
+  string error_message = 3; // 错误信息（如果有）
+  google.protobuf.Timestamp checked_at = 4; // 检查时间
+}
+
+// 获取存储指标响应
+message GetStorageMetricsReply {
+  StorageMetricsProto current_metrics = 1; // 当前指标
+  repeated StorageMetricsProto metrics_history = 2; // 历史指标
+  StorageHealthCheckResult health_status = 3; // 健康状态
+  repeated string alerts = 4; // 告警信息
+  string error = 5; // 如果查询失败，包含错误信息
+  google.protobuf.Timestamp collected_at = 6; // 收集时间
+}

@@ -1,1 +1,13 @@
 .DS_Store
+.idea/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.log
+/bin/
+/vendor/
+/examples/**/tmp/
