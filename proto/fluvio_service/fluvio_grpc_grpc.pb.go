@@ -35,6 +35,12 @@ const (
 	FluvioService_ListSmartModules_FullMethodName      = "/fluvio_grpc.FluvioService/ListSmartModules"
 	FluvioService_DescribeSmartModule_FullMethodName   = "/fluvio_grpc.FluvioService/DescribeSmartModule"
 	FluvioService_UpdateSmartModule_FullMethodName     = "/fluvio_grpc.FluvioService/UpdateSmartModule"
+	FluvioService_FilteredConsume_FullMethodName       = "/fluvio_grpc.FluvioService/FilteredConsume"
+	FluvioService_BulkDelete_FullMethodName            = "/fluvio_grpc.FluvioService/BulkDelete"
+	FluvioService_GetTopicStats_FullMethodName         = "/fluvio_grpc.FluvioService/GetTopicStats"
+	FluvioService_GetStorageStatus_FullMethodName      = "/fluvio_grpc.FluvioService/GetStorageStatus"
+	FluvioService_MigrateStorage_FullMethodName        = "/fluvio_grpc.FluvioService/MigrateStorage"
+	FluvioService_GetStorageMetrics_FullMethodName     = "/fluvio_grpc.FluvioService/GetStorageMetrics"
 	FluvioService_HealthCheck_FullMethodName           = "/fluvio_grpc.FluvioService/HealthCheck"
 )
 
@@ -64,6 +70,13 @@ type FluvioServiceClient interface {
 	ListSmartModules(ctx context.Context, in *ListSmartModulesRequest, opts ...grpc.CallOption) (*ListSmartModulesReply, error)
 	DescribeSmartModule(ctx context.Context, in *DescribeSmartModuleRequest, opts ...grpc.CallOption) (*DescribeSmartModuleReply, error)
 	UpdateSmartModule(ctx context.Context, in *UpdateSmartModuleRequest, opts ...grpc.CallOption) (*UpdateSmartModuleReply, error)
+	// 高级功能
+	FilteredConsume(ctx context.Context, in *FilteredConsumeRequest, opts ...grpc.CallOption) (*FilteredConsumeReply, error)
+	BulkDelete(ctx context.Context, in *BulkDeleteRequest, opts ...grpc.CallOption) (*BulkDeleteReply, error)
+	GetTopicStats(ctx context.Context, in *GetTopicStatsRequest, opts ...grpc.CallOption) (*GetTopicStatsReply, error)
+	GetStorageStatus(ctx context.Context, in *GetStorageStatusRequest, opts ...grpc.CallOption) (*GetStorageStatusReply, error)
+	MigrateStorage(ctx context.Context, in *MigrateStorageRequest, opts ...grpc.CallOption) (*MigrateStorageReply, error)
+	GetStorageMetrics(ctx context.Context, in *GetStorageMetricsRequest, opts ...grpc.CallOption) (*GetStorageMetricsReply, error)
 	// 其他
 	HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckReply, error)
 }
@@ -245,6 +258,66 @@ func (c *fluvioServiceClient) UpdateSmartModule(ctx context.Context, in *UpdateS
 	return out, nil
 }
 
+func (c *fluvioServiceClient) FilteredConsume(ctx context.Context, in *FilteredConsumeRequest, opts ...grpc.CallOption) (*FilteredConsumeReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FilteredConsumeReply)
+	err := c.cc.Invoke(ctx, FluvioService_FilteredConsume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fluvioServiceClient) BulkDelete(ctx context.Context, in *BulkDeleteRequest, opts ...grpc.CallOption) (*BulkDeleteReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BulkDeleteReply)
+	err := c.cc.Invoke(ctx, FluvioService_BulkDelete_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fluvioServiceClient) GetTopicStats(ctx context.Context, in *GetTopicStatsRequest, opts ...grpc.CallOption) (*GetTopicStatsReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTopicStatsReply)
+	err := c.cc.Invoke(ctx, FluvioService_GetTopicStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fluvioServiceClient) GetStorageStatus(ctx context.Context, in *GetStorageStatusRequest, opts ...grpc.CallOption) (*GetStorageStatusReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetStorageStatusReply)
+	err := c.cc.Invoke(ctx, FluvioService_GetStorageStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fluvioServiceClient) MigrateStorage(ctx context.Context, in *MigrateStorageRequest, opts ...grpc.CallOption) (*MigrateStorageReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MigrateStorageReply)
+	err := c.cc.Invoke(ctx, FluvioService_MigrateStorage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fluvioServiceClient) GetStorageMetrics(ctx context.Context, in *GetStorageMetricsRequest, opts ...grpc.CallOption) (*GetStorageMetricsReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetStorageMetricsReply)
+	err := c.cc.Invoke(ctx, FluvioService_GetStorageMetrics_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *fluvioServiceClient) HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckReply, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(HealthCheckReply)
@@ -281,6 +354,13 @@ type FluvioServiceServer interface {
 	ListSmartModules(context.Context, *ListSmartModulesRequest) (*ListSmartModulesReply, error)
 	DescribeSmartModule(context.Context, *DescribeSmartModuleRequest) (*DescribeSmartModuleReply, error)
 	UpdateSmartModule(context.Context, *UpdateSmartModuleRequest) (*UpdateSmartModuleReply, error)
+	// 高级功能
+	FilteredConsume(context.Context, *FilteredConsumeRequest) (*FilteredConsumeReply, error)
+	BulkDelete(context.Context, *BulkDeleteRequest) (*BulkDeleteReply, error)
+	GetTopicStats(context.Context, *GetTopicStatsRequest) (*GetTopicStatsReply, error)
+	GetStorageStatus(context.Context, *GetStorageStatusRequest) (*GetStorageStatusReply, error)
+	MigrateStorage(context.Context, *MigrateStorageRequest) (*MigrateStorageReply, error)
+	GetStorageMetrics(context.Context, *GetStorageMetricsRequest) (*GetStorageMetricsReply, error)
 	// 其他
 	HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckReply, error)
 	mustEmbedUnimplementedFluvioServiceServer()
@@ -340,6 +420,24 @@ func (UnimplementedFluvioServiceServer) DescribeSmartModule(context.Context, *De
 }
 func (UnimplementedFluvioServiceServer) UpdateSmartModule(context.Context, *UpdateSmartModuleRequest) (*UpdateSmartModuleReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateSmartModule not implemented")
+}
+func (UnimplementedFluvioServiceServer) FilteredConsume(context.Context, *FilteredConsumeRequest) (*FilteredConsumeReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FilteredConsume not implemented")
+}
+func (UnimplementedFluvioServiceServer) BulkDelete(context.Context, *BulkDeleteRequest) (*BulkDeleteReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BulkDelete not implemented")
+}
+func (UnimplementedFluvioServiceServer) GetTopicStats(context.Context, *GetTopicStatsRequest) (*GetTopicStatsReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTopicStats not implemented")
+}
+func (UnimplementedFluvioServiceServer) GetStorageStatus(context.Context, *GetStorageStatusRequest) (*GetStorageStatusReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetStorageStatus not implemented")
+}
+func (UnimplementedFluvioServiceServer) MigrateStorage(context.Context, *MigrateStorageRequest) (*MigrateStorageReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MigrateStorage not implemented")
+}
+func (UnimplementedFluvioServiceServer) GetStorageMetrics(context.Context, *GetStorageMetricsRequest) (*GetStorageMetricsReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetStorageMetrics not implemented")
 }
 func (UnimplementedFluvioServiceServer) HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HealthCheck not implemented")
@@ -646,6 +744,114 @@ func _FluvioService_UpdateSmartModule_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FluvioService_FilteredConsume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FilteredConsumeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FluvioServiceServer).FilteredConsume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FluvioService_FilteredConsume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FluvioServiceServer).FilteredConsume(ctx, req.(*FilteredConsumeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FluvioService_BulkDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BulkDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FluvioServiceServer).BulkDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FluvioService_BulkDelete_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FluvioServiceServer).BulkDelete(ctx, req.(*BulkDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FluvioService_GetTopicStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTopicStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FluvioServiceServer).GetTopicStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FluvioService_GetTopicStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FluvioServiceServer).GetTopicStats(ctx, req.(*GetTopicStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FluvioService_GetStorageStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetStorageStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FluvioServiceServer).GetStorageStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FluvioService_GetStorageStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FluvioServiceServer).GetStorageStatus(ctx, req.(*GetStorageStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FluvioService_MigrateStorage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MigrateStorageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FluvioServiceServer).MigrateStorage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FluvioService_MigrateStorage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FluvioServiceServer).MigrateStorage(ctx, req.(*MigrateStorageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FluvioService_GetStorageMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetStorageMetricsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FluvioServiceServer).GetStorageMetrics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FluvioService_GetStorageMetrics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FluvioServiceServer).GetStorageMetrics(ctx, req.(*GetStorageMetricsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _FluvioService_HealthCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HealthCheckRequest)
 	if err := dec(in); err != nil {
@@ -730,6 +936,30 @@ var FluvioService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateSmartModule",
 			Handler:    _FluvioService_UpdateSmartModule_Handler,
+		},
+		{
+			MethodName: "FilteredConsume",
+			Handler:    _FluvioService_FilteredConsume_Handler,
+		},
+		{
+			MethodName: "BulkDelete",
+			Handler:    _FluvioService_BulkDelete_Handler,
+		},
+		{
+			MethodName: "GetTopicStats",
+			Handler:    _FluvioService_GetTopicStats_Handler,
+		},
+		{
+			MethodName: "GetStorageStatus",
+			Handler:    _FluvioService_GetStorageStatus_Handler,
+		},
+		{
+			MethodName: "MigrateStorage",
+			Handler:    _FluvioService_MigrateStorage_Handler,
+		},
+		{
+			MethodName: "GetStorageMetrics",
+			Handler:    _FluvioService_GetStorageMetrics_Handler,
 		},
 		{
 			MethodName: "HealthCheck",

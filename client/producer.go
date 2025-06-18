@@ -49,6 +49,11 @@ func (p *Producer) Produce(ctx context.Context, message string, opts types.Produ
 		Headers: opts.Headers,
 	}
 
+	// 设置消息ID
+	if opts.MessageID != "" {
+		req.MessageId = opts.MessageID
+	}
+
 	// 设置时间戳
 	if opts.Timestamp != nil {
 		req.Timestamp = timestamppb.New(*opts.Timestamp)
@@ -121,6 +126,11 @@ func (p *Producer) ProduceBatch(ctx context.Context, messages []types.Message) (
 			Message: msg.Value,
 			Key:     msg.Key,
 			Headers: msg.Headers,
+		}
+
+		// 设置消息ID
+		if msg.MessageID != "" {
+			req.MessageId = msg.MessageID
 		}
 
 		if !msg.Timestamp.IsZero() {

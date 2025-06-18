@@ -81,8 +81,11 @@ func (tm *TopicManager) Create(ctx context.Context, opts types.CreateTopicOption
 	}
 
 	req := &pb.CreateTopicRequest{
-		Topic:      opts.Name,
-		Partitions: opts.Partitions,
+		Topic:             opts.Name,
+		Partitions:        opts.Partitions,
+		ReplicationFactor: opts.ReplicationFactor,
+		RetentionMs:       opts.RetentionMs,
+		Config:            opts.Config,
 	}
 
 	tm.client.logger.Debug("创建主题",
@@ -361,9 +364,9 @@ func (tm *TopicManager) ListTopicNames(ctx context.Context) ([]string, error) {
 // CreateTopicWithDefaults 使用默认配置创建主题
 func (tm *TopicManager) CreateTopicWithDefaults(ctx context.Context, topicName string) (*types.CreateTopicResult, error) {
 	return tm.Create(ctx, types.CreateTopicOptions{
-		Name:       topicName,
-		Partitions: 1,
-		Replicas:   1,
+		Name:              topicName,
+		Partitions:        1,
+		ReplicationFactor: 1,
 	})
 }
 
@@ -508,4 +511,172 @@ func (atm *AdvancedTopicManager) CreateTopicWithValidation(ctx context.Context, 
 	}
 
 	return atm.topicManager.Create(ctx, opts)
+}
+
+// DescribeTopicDetail 获取主题详细信息（新版本）
+func (tm *TopicManager) DescribeTopicDetail(ctx context.Context, topicName string) (*types.DescribeTopicDetailResult, error) {
+	if tm.client.isClosed() {
+		return nil, errors.New(errors.ErrConnection, "客户端已关闭")
+	}
+
+	if topicName == "" {
+		return nil, errors.New(errors.ErrInvalidArgument, "主题名称不能为空")
+	}
+
+	req := &pb.DescribeTopicRequest{
+		Topic: topicName,
+	}
+
+	tm.client.logger.Debug("获取主题详细信息", logger.Field{Key: "name", Value: topicName})
+
+	var result *types.DescribeTopicDetailResult
+	err := tm.client.withConnection(ctx, func(conn *grpc.ClientConn) error {
+		client := pb.NewFluvioServiceClient(conn)
+
+		resp, err := client.DescribeTopic(ctx, req)
+		if err != nil {
+			return errors.Wrap(errors.ErrInternal, "获取主题详细信息失败", err)
+		}
+
+		if resp.GetError() != "" {
+			return errors.New(errors.ErrInternal, resp.GetError())
+		}
+
+		// 转换分区信息
+		var partitions []*types.PartitionInfo
+		for _, p := range resp.GetPartitions() {
+			partition := &types.PartitionInfo{
+				PartitionID:    p.GetPartitionId(),
+				LeaderID:       p.GetLeaderId(),
+				ReplicaIDs:     p.GetReplicaIds(),
+				ISRIDs:         p.GetIsrIds(),
+				HighWatermark:  p.GetHighWatermark(),
+				LogStartOffset: p.GetLogStartOffset(),
+			}
+			partitions = append(partitions, partition)
+		}
+
+		result = &types.DescribeTopicDetailResult{
+			Topic:       resp.GetTopic(),
+			RetentionMs: resp.GetRetentionMs(),
+			Config:      resp.GetConfig(),
+			Partitions:  partitions,
+			Success:     true,
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		tm.client.logger.Error("获取主题详细信息失败",
+			logger.Field{Key: "name", Value: topicName},
+			logger.Field{Key: "error", Value: err})
+		return &types.DescribeTopicDetailResult{
+			Success: false,
+			Error:   err.Error(),
+		}, err
+	}
+
+	tm.client.logger.Info("主题详细信息获取成功", logger.Field{Key: "name", Value: topicName})
+
+	return result, nil
+}
+
+// GetTopicStats 获取主题统计信息
+func (tm *TopicManager) GetTopicStats(ctx context.Context, opts types.GetTopicStatsOptions) (*types.GetTopicStatsResult, error) {
+	if tm.client.isClosed() {
+		return nil, errors.New(errors.ErrConnection, "客户端已关闭")
+	}
+
+	req := &pb.GetTopicStatsRequest{
+		Topic:             opts.Topic,
+		IncludePartitions: opts.IncludePartitions,
+	}
+
+	tm.client.logger.Debug("获取主题统计信息",
+		logger.Field{Key: "topic", Value: opts.Topic},
+		logger.Field{Key: "include_partitions", Value: opts.IncludePartitions})
+
+	var result *types.GetTopicStatsResult
+	err := tm.client.withConnection(ctx, func(conn *grpc.ClientConn) error {
+		client := pb.NewFluvioServiceClient(conn)
+
+		resp, err := client.GetTopicStats(ctx, req)
+		if err != nil {
+			return errors.Wrap(errors.ErrInternal, "获取主题统计信息失败", err)
+		}
+
+		if resp.GetError() != "" {
+			return errors.New(errors.ErrInternal, resp.GetError())
+		}
+
+		// 转换主题统计信息
+		var topics []*types.TopicStats
+		for _, t := range resp.GetTopics() {
+			topicStats := &types.TopicStats{
+				Topic:             t.GetTopic(),
+				PartitionCount:    t.GetPartitionCount(),
+				ReplicationFactor: t.GetReplicationFactor(),
+				TotalMessageCount: t.GetTotalMessageCount(),
+				TotalSizeBytes:    t.GetTotalSizeBytes(),
+			}
+
+			if t.GetCreatedAt() != nil {
+				topicStats.CreatedAt = t.GetCreatedAt().AsTime()
+			}
+			if t.GetLastUpdated() != nil {
+				topicStats.LastUpdated = t.GetLastUpdated().AsTime()
+			}
+
+			// 转换分区统计信息
+			if opts.IncludePartitions {
+				var partitions []*types.PartitionStats
+				for _, p := range t.GetPartitions() {
+					partitionStats := &types.PartitionStats{
+						PartitionID:    p.GetPartitionId(),
+						MessageCount:   p.GetMessageCount(),
+						TotalSizeBytes: p.GetTotalSizeBytes(),
+						EarliestOffset: p.GetEarliestOffset(),
+						LatestOffset:   p.GetLatestOffset(),
+					}
+
+					if p.GetLastUpdated() != nil {
+						partitionStats.LastUpdated = p.GetLastUpdated().AsTime()
+					}
+
+					partitions = append(partitions, partitionStats)
+				}
+				topicStats.Partitions = partitions
+			}
+
+			topics = append(topics, topicStats)
+		}
+
+		result = &types.GetTopicStatsResult{
+			Topics:  topics,
+			Success: true,
+		}
+
+		if resp.GetCollectedAt() != nil {
+			result.CollectedAt = resp.GetCollectedAt().AsTime()
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		tm.client.logger.Error("获取主题统计信息失败",
+			logger.Field{Key: "topic", Value: opts.Topic},
+			logger.Field{Key: "error", Value: err})
+		return &types.GetTopicStatsResult{
+			Success: false,
+			Error:   err.Error(),
+		}, err
+	}
+
+	tm.client.logger.Info("主题统计信息获取成功",
+		logger.Field{Key: "topic", Value: opts.Topic},
+		logger.Field{Key: "topics_count", Value: len(result.Topics)})
+
+	return result, nil
 }

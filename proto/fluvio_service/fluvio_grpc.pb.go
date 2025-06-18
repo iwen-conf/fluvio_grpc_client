@@ -122,6 +122,115 @@ func (SmartModuleOutput) EnumDescriptor() ([]byte, []int) {
 	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{1}
 }
 
+// 健康状态枚举
+type HealthStatus int32
+
+const (
+	HealthStatus_UNKNOWN   HealthStatus = 0
+	HealthStatus_HEALTHY   HealthStatus = 1
+	HealthStatus_DEGRADED  HealthStatus = 2 // 部分功能不可用但核心功能正常
+	HealthStatus_UNHEALTHY HealthStatus = 3
+)
+
+// Enum value maps for HealthStatus.
+var (
+	HealthStatus_name = map[int32]string{
+		0: "UNKNOWN",
+		1: "HEALTHY",
+		2: "DEGRADED",
+		3: "UNHEALTHY",
+	}
+	HealthStatus_value = map[string]int32{
+		"UNKNOWN":   0,
+		"HEALTHY":   1,
+		"DEGRADED":  2,
+		"UNHEALTHY": 3,
+	}
+)
+
+func (x HealthStatus) Enum() *HealthStatus {
+	p := new(HealthStatus)
+	*p = x
+	return p
+}
+
+func (x HealthStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (HealthStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_fluvio_grpc_proto_enumTypes[2].Descriptor()
+}
+
+func (HealthStatus) Type() protoreflect.EnumType {
+	return &file_proto_fluvio_grpc_proto_enumTypes[2]
+}
+
+func (x HealthStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use HealthStatus.Descriptor instead.
+func (HealthStatus) EnumDescriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{2}
+}
+
+// 消息过滤器类型
+type FilterType int32
+
+const (
+	FilterType_FILTER_TYPE_UNKNOWN   FilterType = 0
+	FilterType_FILTER_TYPE_KEY       FilterType = 1 // 按消息键过滤
+	FilterType_FILTER_TYPE_HEADER    FilterType = 2 // 按消息头过滤
+	FilterType_FILTER_TYPE_CONTENT   FilterType = 3 // 按消息内容过滤
+	FilterType_FILTER_TYPE_TIMESTAMP FilterType = 4 // 按时间戳过滤
+)
+
+// Enum value maps for FilterType.
+var (
+	FilterType_name = map[int32]string{
+		0: "FILTER_TYPE_UNKNOWN",
+		1: "FILTER_TYPE_KEY",
+		2: "FILTER_TYPE_HEADER",
+		3: "FILTER_TYPE_CONTENT",
+		4: "FILTER_TYPE_TIMESTAMP",
+	}
+	FilterType_value = map[string]int32{
+		"FILTER_TYPE_UNKNOWN":   0,
+		"FILTER_TYPE_KEY":       1,
+		"FILTER_TYPE_HEADER":    2,
+		"FILTER_TYPE_CONTENT":   3,
+		"FILTER_TYPE_TIMESTAMP": 4,
+	}
+)
+
+func (x FilterType) Enum() *FilterType {
+	p := new(FilterType)
+	*p = x
+	return p
+}
+
+func (x FilterType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (FilterType) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_fluvio_grpc_proto_enumTypes[3].Descriptor()
+}
+
+func (FilterType) Type() protoreflect.EnumType {
+	return &file_proto_fluvio_grpc_proto_enumTypes[3]
+}
+
+func (x FilterType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use FilterType.Descriptor instead.
+func (FilterType) EnumDescriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{3}
+}
+
 // ProduceRequest 生产单条消息的请求结构
 type ProduceRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2711,6 +2820,7 @@ func (x *GetMetricsReply) GetError() string {
 // HealthCheckRequest 健康检查请求结构
 type HealthCheckRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Detailed      bool                   `protobuf:"varint,1,opt,name=detailed,proto3" json:"detailed,omitempty"` // 是否返回详细的健康检查信息，默认false
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2745,18 +2855,97 @@ func (*HealthCheckRequest) Descriptor() ([]byte, []int) {
 	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{45}
 }
 
+func (x *HealthCheckRequest) GetDetailed() bool {
+	if x != nil {
+		return x.Detailed
+	}
+	return false
+}
+
+// 组件健康状态
+type ComponentHealth struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Name           string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                              // 组件名称
+	Status         HealthStatus           `protobuf:"varint,2,opt,name=status,proto3,enum=fluvio_grpc.HealthStatus" json:"status,omitempty"`           // 组件状态
+	Message        string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`                                        // 状态描述
+	ResponseTimeMs int64                  `protobuf:"varint,4,opt,name=response_time_ms,json=responseTimeMs,proto3" json:"response_time_ms,omitempty"` // 响应时间（毫秒）
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ComponentHealth) Reset() {
+	*x = ComponentHealth{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ComponentHealth) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ComponentHealth) ProtoMessage() {}
+
+func (x *ComponentHealth) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ComponentHealth.ProtoReflect.Descriptor instead.
+func (*ComponentHealth) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *ComponentHealth) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ComponentHealth) GetStatus() HealthStatus {
+	if x != nil {
+		return x.Status
+	}
+	return HealthStatus_UNKNOWN
+}
+
+func (x *ComponentHealth) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *ComponentHealth) GetResponseTimeMs() int64 {
+	if x != nil {
+		return x.ResponseTimeMs
+	}
+	return 0
+}
+
 // HealthCheckReply 健康检查响应结构
 type HealthCheckReply struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`          // 服务是否健康
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"` // 额外的健康状态消息
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`                                       // 服务是否健康（向后兼容）
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`                              // 额外的健康状态消息（向后兼容）
+	Status        HealthStatus           `protobuf:"varint,3,opt,name=status,proto3,enum=fluvio_grpc.HealthStatus" json:"status,omitempty"` // 详细健康状态
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`                          // 检查时间戳
+	Components    []*ComponentHealth     `protobuf:"bytes,5,rep,name=components,proto3" json:"components,omitempty"`                        // 各组件健康状态
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *HealthCheckReply) Reset() {
 	*x = HealthCheckReply{}
-	mi := &file_proto_fluvio_grpc_proto_msgTypes[46]
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2768,7 +2957,7 @@ func (x *HealthCheckReply) String() string {
 func (*HealthCheckReply) ProtoMessage() {}
 
 func (x *HealthCheckReply) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fluvio_grpc_proto_msgTypes[46]
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2781,7 +2970,7 @@ func (x *HealthCheckReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheckReply.ProtoReflect.Descriptor instead.
 func (*HealthCheckReply) Descriptor() ([]byte, []int) {
-	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{46}
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *HealthCheckReply) GetOk() bool {
@@ -2796,6 +2985,1657 @@ func (x *HealthCheckReply) GetMessage() string {
 		return x.Message
 	}
 	return ""
+}
+
+func (x *HealthCheckReply) GetStatus() HealthStatus {
+	if x != nil {
+		return x.Status
+	}
+	return HealthStatus_UNKNOWN
+}
+
+func (x *HealthCheckReply) GetTimestamp() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Timestamp
+	}
+	return nil
+}
+
+func (x *HealthCheckReply) GetComponents() []*ComponentHealth {
+	if x != nil {
+		return x.Components
+	}
+	return nil
+}
+
+// 过滤条件
+type FilterCondition struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          FilterType             `protobuf:"varint,1,opt,name=type,proto3,enum=fluvio_grpc.FilterType" json:"type,omitempty"` // 过滤类型
+	Field         string                 `protobuf:"bytes,2,opt,name=field,proto3" json:"field,omitempty"`                            // 过滤字段（对于header和content过滤）
+	Operator      string                 `protobuf:"bytes,3,opt,name=operator,proto3" json:"operator,omitempty"`                      // 操作符：eq, ne, contains, starts_with, ends_with, gt, lt, gte, lte
+	Value         string                 `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`                            // 过滤值
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FilterCondition) Reset() {
+	*x = FilterCondition{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FilterCondition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FilterCondition) ProtoMessage() {}
+
+func (x *FilterCondition) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FilterCondition.ProtoReflect.Descriptor instead.
+func (*FilterCondition) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *FilterCondition) GetType() FilterType {
+	if x != nil {
+		return x.Type
+	}
+	return FilterType_FILTER_TYPE_UNKNOWN
+}
+
+func (x *FilterCondition) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+func (x *FilterCondition) GetOperator() string {
+	if x != nil {
+		return x.Operator
+	}
+	return ""
+}
+
+func (x *FilterCondition) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+// 过滤消费请求
+type FilteredConsumeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Topic         string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`                                 // 目标主题名称
+	MaxMessages   int32                  `protobuf:"varint,2,opt,name=max_messages,json=maxMessages,proto3" json:"max_messages,omitempty"` // 本次请求最多消费的消息数量
+	Offset        int64                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`                              // 消费的起始偏移量
+	Group         string                 `protobuf:"bytes,4,opt,name=group,proto3" json:"group,omitempty"`                                 // 消费组名称
+	Partition     int32                  `protobuf:"varint,5,opt,name=partition,proto3" json:"partition,omitempty"`                        // 目标特定分区 ID
+	Filters       []*FilterCondition     `protobuf:"bytes,6,rep,name=filters,proto3" json:"filters,omitempty"`                             // 过滤条件列表
+	AndLogic      bool                   `protobuf:"varint,7,opt,name=and_logic,json=andLogic,proto3" json:"and_logic,omitempty"`          // true为AND逻辑，false为OR逻辑，默认true
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FilteredConsumeRequest) Reset() {
+	*x = FilteredConsumeRequest{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FilteredConsumeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FilteredConsumeRequest) ProtoMessage() {}
+
+func (x *FilteredConsumeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FilteredConsumeRequest.ProtoReflect.Descriptor instead.
+func (*FilteredConsumeRequest) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *FilteredConsumeRequest) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+func (x *FilteredConsumeRequest) GetMaxMessages() int32 {
+	if x != nil {
+		return x.MaxMessages
+	}
+	return 0
+}
+
+func (x *FilteredConsumeRequest) GetOffset() int64 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *FilteredConsumeRequest) GetGroup() string {
+	if x != nil {
+		return x.Group
+	}
+	return ""
+}
+
+func (x *FilteredConsumeRequest) GetPartition() int32 {
+	if x != nil {
+		return x.Partition
+	}
+	return 0
+}
+
+func (x *FilteredConsumeRequest) GetFilters() []*FilterCondition {
+	if x != nil {
+		return x.Filters
+	}
+	return nil
+}
+
+func (x *FilteredConsumeRequest) GetAndLogic() bool {
+	if x != nil {
+		return x.AndLogic
+	}
+	return false
+}
+
+// 过滤消费响应
+type FilteredConsumeReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Messages      []*ConsumedMessage     `protobuf:"bytes,1,rep,name=messages,proto3" json:"messages,omitempty"`                                 // 过滤后的消息列表
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`                                       // 如果消费过程出错，包含错误信息
+	NextOffset    int64                  `protobuf:"varint,3,opt,name=next_offset,json=nextOffset,proto3" json:"next_offset,omitempty"`          // 建议下次消费的起始偏移量
+	TotalScanned  int32                  `protobuf:"varint,4,opt,name=total_scanned,json=totalScanned,proto3" json:"total_scanned,omitempty"`    // 总共扫描的消息数量
+	FilteredCount int32                  `protobuf:"varint,5,opt,name=filtered_count,json=filteredCount,proto3" json:"filtered_count,omitempty"` // 过滤后的消息数量
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FilteredConsumeReply) Reset() {
+	*x = FilteredConsumeReply{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FilteredConsumeReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FilteredConsumeReply) ProtoMessage() {}
+
+func (x *FilteredConsumeReply) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FilteredConsumeReply.ProtoReflect.Descriptor instead.
+func (*FilteredConsumeReply) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *FilteredConsumeReply) GetMessages() []*ConsumedMessage {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
+func (x *FilteredConsumeReply) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *FilteredConsumeReply) GetNextOffset() int64 {
+	if x != nil {
+		return x.NextOffset
+	}
+	return 0
+}
+
+func (x *FilteredConsumeReply) GetTotalScanned() int32 {
+	if x != nil {
+		return x.TotalScanned
+	}
+	return 0
+}
+
+func (x *FilteredConsumeReply) GetFilteredCount() int32 {
+	if x != nil {
+		return x.FilteredCount
+	}
+	return 0
+}
+
+// 批量删除请求
+type BulkDeleteRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Topics         []string               `protobuf:"bytes,1,rep,name=topics,proto3" json:"topics,omitempty"`                                       // 要删除的主题列表
+	ConsumerGroups []string               `protobuf:"bytes,2,rep,name=consumer_groups,json=consumerGroups,proto3" json:"consumer_groups,omitempty"` // 要删除的消费者组列表
+	SmartModules   []string               `protobuf:"bytes,3,rep,name=smart_modules,json=smartModules,proto3" json:"smart_modules,omitempty"`       // 要删除的SmartModule列表
+	Force          bool                   `protobuf:"varint,4,opt,name=force,proto3" json:"force,omitempty"`                                        // 是否强制删除（忽略依赖检查）
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *BulkDeleteRequest) Reset() {
+	*x = BulkDeleteRequest{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BulkDeleteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BulkDeleteRequest) ProtoMessage() {}
+
+func (x *BulkDeleteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BulkDeleteRequest.ProtoReflect.Descriptor instead.
+func (*BulkDeleteRequest) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *BulkDeleteRequest) GetTopics() []string {
+	if x != nil {
+		return x.Topics
+	}
+	return nil
+}
+
+func (x *BulkDeleteRequest) GetConsumerGroups() []string {
+	if x != nil {
+		return x.ConsumerGroups
+	}
+	return nil
+}
+
+func (x *BulkDeleteRequest) GetSmartModules() []string {
+	if x != nil {
+		return x.SmartModules
+	}
+	return nil
+}
+
+func (x *BulkDeleteRequest) GetForce() bool {
+	if x != nil {
+		return x.Force
+	}
+	return false
+}
+
+// 批量删除结果
+type BulkDeleteResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`        // 资源名称
+	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`        // 资源类型：topic, consumer_group, smart_module
+	Success       bool                   `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"` // 是否删除成功
+	Error         string                 `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`      // 如果失败，包含错误信息
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BulkDeleteResult) Reset() {
+	*x = BulkDeleteResult{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BulkDeleteResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BulkDeleteResult) ProtoMessage() {}
+
+func (x *BulkDeleteResult) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BulkDeleteResult.ProtoReflect.Descriptor instead.
+func (*BulkDeleteResult) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *BulkDeleteResult) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BulkDeleteResult) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *BulkDeleteResult) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *BulkDeleteResult) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+// 批量删除响应
+type BulkDeleteReply struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Results           []*BulkDeleteResult    `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`                                               // 删除结果列表
+	TotalRequested    int32                  `protobuf:"varint,2,opt,name=total_requested,json=totalRequested,proto3" json:"total_requested,omitempty"`          // 总共请求删除的资源数量
+	SuccessfulDeletes int32                  `protobuf:"varint,3,opt,name=successful_deletes,json=successfulDeletes,proto3" json:"successful_deletes,omitempty"` // 成功删除的资源数量
+	FailedDeletes     int32                  `protobuf:"varint,4,opt,name=failed_deletes,json=failedDeletes,proto3" json:"failed_deletes,omitempty"`             // 删除失败的资源数量
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *BulkDeleteReply) Reset() {
+	*x = BulkDeleteReply{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BulkDeleteReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BulkDeleteReply) ProtoMessage() {}
+
+func (x *BulkDeleteReply) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BulkDeleteReply.ProtoReflect.Descriptor instead.
+func (*BulkDeleteReply) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *BulkDeleteReply) GetResults() []*BulkDeleteResult {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
+func (x *BulkDeleteReply) GetTotalRequested() int32 {
+	if x != nil {
+		return x.TotalRequested
+	}
+	return 0
+}
+
+func (x *BulkDeleteReply) GetSuccessfulDeletes() int32 {
+	if x != nil {
+		return x.SuccessfulDeletes
+	}
+	return 0
+}
+
+func (x *BulkDeleteReply) GetFailedDeletes() int32 {
+	if x != nil {
+		return x.FailedDeletes
+	}
+	return 0
+}
+
+// 获取主题统计信息请求
+type GetTopicStatsRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Topic             string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`                                                   // 主题名称，为空则获取所有主题统计
+	IncludePartitions bool                   `protobuf:"varint,2,opt,name=include_partitions,json=includePartitions,proto3" json:"include_partitions,omitempty"` // 是否包含分区级别的统计信息
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *GetTopicStatsRequest) Reset() {
+	*x = GetTopicStatsRequest{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTopicStatsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTopicStatsRequest) ProtoMessage() {}
+
+func (x *GetTopicStatsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTopicStatsRequest.ProtoReflect.Descriptor instead.
+func (*GetTopicStatsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *GetTopicStatsRequest) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+func (x *GetTopicStatsRequest) GetIncludePartitions() bool {
+	if x != nil {
+		return x.IncludePartitions
+	}
+	return false
+}
+
+// 分区统计信息
+type PartitionStats struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	PartitionId    int32                  `protobuf:"varint,1,opt,name=partition_id,json=partitionId,proto3" json:"partition_id,omitempty"`            // 分区ID
+	MessageCount   int64                  `protobuf:"varint,2,opt,name=message_count,json=messageCount,proto3" json:"message_count,omitempty"`         // 消息总数
+	TotalSizeBytes int64                  `protobuf:"varint,3,opt,name=total_size_bytes,json=totalSizeBytes,proto3" json:"total_size_bytes,omitempty"` // 总大小（字节）
+	EarliestOffset int64                  `protobuf:"varint,4,opt,name=earliest_offset,json=earliestOffset,proto3" json:"earliest_offset,omitempty"`   // 最早偏移量
+	LatestOffset   int64                  `protobuf:"varint,5,opt,name=latest_offset,json=latestOffset,proto3" json:"latest_offset,omitempty"`         // 最新偏移量
+	LastUpdated    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`             // 最后更新时间
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *PartitionStats) Reset() {
+	*x = PartitionStats{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PartitionStats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PartitionStats) ProtoMessage() {}
+
+func (x *PartitionStats) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PartitionStats.ProtoReflect.Descriptor instead.
+func (*PartitionStats) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *PartitionStats) GetPartitionId() int32 {
+	if x != nil {
+		return x.PartitionId
+	}
+	return 0
+}
+
+func (x *PartitionStats) GetMessageCount() int64 {
+	if x != nil {
+		return x.MessageCount
+	}
+	return 0
+}
+
+func (x *PartitionStats) GetTotalSizeBytes() int64 {
+	if x != nil {
+		return x.TotalSizeBytes
+	}
+	return 0
+}
+
+func (x *PartitionStats) GetEarliestOffset() int64 {
+	if x != nil {
+		return x.EarliestOffset
+	}
+	return 0
+}
+
+func (x *PartitionStats) GetLatestOffset() int64 {
+	if x != nil {
+		return x.LatestOffset
+	}
+	return 0
+}
+
+func (x *PartitionStats) GetLastUpdated() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastUpdated
+	}
+	return nil
+}
+
+// 主题统计信息
+type TopicStats struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Topic             string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`                                                     // 主题名称
+	PartitionCount    int32                  `protobuf:"varint,2,opt,name=partition_count,json=partitionCount,proto3" json:"partition_count,omitempty"`            // 分区数量
+	ReplicationFactor int32                  `protobuf:"varint,3,opt,name=replication_factor,json=replicationFactor,proto3" json:"replication_factor,omitempty"`   // 副本因子
+	TotalMessageCount int64                  `protobuf:"varint,4,opt,name=total_message_count,json=totalMessageCount,proto3" json:"total_message_count,omitempty"` // 总消息数量
+	TotalSizeBytes    int64                  `protobuf:"varint,5,opt,name=total_size_bytes,json=totalSizeBytes,proto3" json:"total_size_bytes,omitempty"`          // 总大小（字节）
+	Partitions        []*PartitionStats      `protobuf:"bytes,6,rep,name=partitions,proto3" json:"partitions,omitempty"`                                           // 分区统计信息（如果请求包含）
+	CreatedAt         *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                            // 创建时间
+	LastUpdated       *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`                      // 最后更新时间
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *TopicStats) Reset() {
+	*x = TopicStats{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TopicStats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TopicStats) ProtoMessage() {}
+
+func (x *TopicStats) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TopicStats.ProtoReflect.Descriptor instead.
+func (*TopicStats) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *TopicStats) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+func (x *TopicStats) GetPartitionCount() int32 {
+	if x != nil {
+		return x.PartitionCount
+	}
+	return 0
+}
+
+func (x *TopicStats) GetReplicationFactor() int32 {
+	if x != nil {
+		return x.ReplicationFactor
+	}
+	return 0
+}
+
+func (x *TopicStats) GetTotalMessageCount() int64 {
+	if x != nil {
+		return x.TotalMessageCount
+	}
+	return 0
+}
+
+func (x *TopicStats) GetTotalSizeBytes() int64 {
+	if x != nil {
+		return x.TotalSizeBytes
+	}
+	return 0
+}
+
+func (x *TopicStats) GetPartitions() []*PartitionStats {
+	if x != nil {
+		return x.Partitions
+	}
+	return nil
+}
+
+func (x *TopicStats) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *TopicStats) GetLastUpdated() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastUpdated
+	}
+	return nil
+}
+
+// 获取主题统计信息响应
+type GetTopicStatsReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Topics        []*TopicStats          `protobuf:"bytes,1,rep,name=topics,proto3" json:"topics,omitempty"`                              // 主题统计信息列表
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`                                // 如果查询失败，包含错误信息
+	CollectedAt   *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=collected_at,json=collectedAt,proto3" json:"collected_at,omitempty"` // 统计信息收集时间
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTopicStatsReply) Reset() {
+	*x = GetTopicStatsReply{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTopicStatsReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTopicStatsReply) ProtoMessage() {}
+
+func (x *GetTopicStatsReply) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTopicStatsReply.ProtoReflect.Descriptor instead.
+func (*GetTopicStatsReply) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *GetTopicStatsReply) GetTopics() []*TopicStats {
+	if x != nil {
+		return x.Topics
+	}
+	return nil
+}
+
+func (x *GetTopicStatsReply) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *GetTopicStatsReply) GetCollectedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CollectedAt
+	}
+	return nil
+}
+
+// 获取存储状态请求
+type GetStorageStatusRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	IncludeDetails bool                   `protobuf:"varint,1,opt,name=include_details,json=includeDetails,proto3" json:"include_details,omitempty"` // 是否包含详细信息
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetStorageStatusRequest) Reset() {
+	*x = GetStorageStatusRequest{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStorageStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStorageStatusRequest) ProtoMessage() {}
+
+func (x *GetStorageStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStorageStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetStorageStatusRequest) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *GetStorageStatusRequest) GetIncludeDetails() bool {
+	if x != nil {
+		return x.IncludeDetails
+	}
+	return false
+}
+
+// 存储连接统计信息
+type StorageConnectionStats struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	CurrentConnections      uint32                 `protobuf:"varint,1,opt,name=current_connections,json=currentConnections,proto3" json:"current_connections,omitempty"`                  // 当前连接数
+	AvailableConnections    uint32                 `protobuf:"varint,2,opt,name=available_connections,json=availableConnections,proto3" json:"available_connections,omitempty"`            // 可用连接数
+	TotalCreatedConnections uint32                 `protobuf:"varint,3,opt,name=total_created_connections,json=totalCreatedConnections,proto3" json:"total_created_connections,omitempty"` // 总创建连接数
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *StorageConnectionStats) Reset() {
+	*x = StorageConnectionStats{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StorageConnectionStats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StorageConnectionStats) ProtoMessage() {}
+
+func (x *StorageConnectionStats) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StorageConnectionStats.ProtoReflect.Descriptor instead.
+func (*StorageConnectionStats) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *StorageConnectionStats) GetCurrentConnections() uint32 {
+	if x != nil {
+		return x.CurrentConnections
+	}
+	return 0
+}
+
+func (x *StorageConnectionStats) GetAvailableConnections() uint32 {
+	if x != nil {
+		return x.AvailableConnections
+	}
+	return 0
+}
+
+func (x *StorageConnectionStats) GetTotalCreatedConnections() uint32 {
+	if x != nil {
+		return x.TotalCreatedConnections
+	}
+	return 0
+}
+
+// 存储数据库信息
+type StorageDatabaseInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                   // 数据库名称
+	Collections   uint32                 `protobuf:"varint,2,opt,name=collections,proto3" json:"collections,omitempty"`                    // 集合数量
+	DataSize      uint64                 `protobuf:"varint,3,opt,name=data_size,json=dataSize,proto3" json:"data_size,omitempty"`          // 数据大小（字节）
+	StorageSize   uint64                 `protobuf:"varint,4,opt,name=storage_size,json=storageSize,proto3" json:"storage_size,omitempty"` // 存储大小（字节）
+	Indexes       uint32                 `protobuf:"varint,5,opt,name=indexes,proto3" json:"indexes,omitempty"`                            // 索引数量
+	IndexSize     uint64                 `protobuf:"varint,6,opt,name=index_size,json=indexSize,proto3" json:"index_size,omitempty"`       // 索引大小（字节）
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StorageDatabaseInfo) Reset() {
+	*x = StorageDatabaseInfo{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StorageDatabaseInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StorageDatabaseInfo) ProtoMessage() {}
+
+func (x *StorageDatabaseInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StorageDatabaseInfo.ProtoReflect.Descriptor instead.
+func (*StorageDatabaseInfo) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *StorageDatabaseInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *StorageDatabaseInfo) GetCollections() uint32 {
+	if x != nil {
+		return x.Collections
+	}
+	return 0
+}
+
+func (x *StorageDatabaseInfo) GetDataSize() uint64 {
+	if x != nil {
+		return x.DataSize
+	}
+	return 0
+}
+
+func (x *StorageDatabaseInfo) GetStorageSize() uint64 {
+	if x != nil {
+		return x.StorageSize
+	}
+	return 0
+}
+
+func (x *StorageDatabaseInfo) GetIndexes() uint32 {
+	if x != nil {
+		return x.Indexes
+	}
+	return 0
+}
+
+func (x *StorageDatabaseInfo) GetIndexSize() uint64 {
+	if x != nil {
+		return x.IndexSize
+	}
+	return 0
+}
+
+// 存储统计信息
+type StorageStats struct {
+	state            protoimpl.MessageState  `protogen:"open.v1"`
+	StorageType      string                  `protobuf:"bytes,1,opt,name=storage_type,json=storageType,proto3" json:"storage_type,omitempty"`                // 存储类型：memory 或 mongodb
+	ConsumerGroups   uint64                  `protobuf:"varint,2,opt,name=consumer_groups,json=consumerGroups,proto3" json:"consumer_groups,omitempty"`      // 消费者组数量
+	ConsumerOffsets  uint64                  `protobuf:"varint,3,opt,name=consumer_offsets,json=consumerOffsets,proto3" json:"consumer_offsets,omitempty"`   // 消费者偏移量数量
+	SmartModules     uint64                  `protobuf:"varint,4,opt,name=smart_modules,json=smartModules,proto3" json:"smart_modules,omitempty"`            // SmartModule数量
+	ConnectionStatus string                  `protobuf:"bytes,5,opt,name=connection_status,json=connectionStatus,proto3" json:"connection_status,omitempty"` // 连接状态
+	ConnectionStats  *StorageConnectionStats `protobuf:"bytes,6,opt,name=connection_stats,json=connectionStats,proto3" json:"connection_stats,omitempty"`    // 连接统计（可选）
+	DatabaseInfo     *StorageDatabaseInfo    `protobuf:"bytes,7,opt,name=database_info,json=databaseInfo,proto3" json:"database_info,omitempty"`             // 数据库信息（可选）
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *StorageStats) Reset() {
+	*x = StorageStats{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StorageStats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StorageStats) ProtoMessage() {}
+
+func (x *StorageStats) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StorageStats.ProtoReflect.Descriptor instead.
+func (*StorageStats) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *StorageStats) GetStorageType() string {
+	if x != nil {
+		return x.StorageType
+	}
+	return ""
+}
+
+func (x *StorageStats) GetConsumerGroups() uint64 {
+	if x != nil {
+		return x.ConsumerGroups
+	}
+	return 0
+}
+
+func (x *StorageStats) GetConsumerOffsets() uint64 {
+	if x != nil {
+		return x.ConsumerOffsets
+	}
+	return 0
+}
+
+func (x *StorageStats) GetSmartModules() uint64 {
+	if x != nil {
+		return x.SmartModules
+	}
+	return 0
+}
+
+func (x *StorageStats) GetConnectionStatus() string {
+	if x != nil {
+		return x.ConnectionStatus
+	}
+	return ""
+}
+
+func (x *StorageStats) GetConnectionStats() *StorageConnectionStats {
+	if x != nil {
+		return x.ConnectionStats
+	}
+	return nil
+}
+
+func (x *StorageStats) GetDatabaseInfo() *StorageDatabaseInfo {
+	if x != nil {
+		return x.DatabaseInfo
+	}
+	return nil
+}
+
+// 获取存储状态响应
+type GetStorageStatusReply struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	PersistenceEnabled bool                   `protobuf:"varint,1,opt,name=persistence_enabled,json=persistenceEnabled,proto3" json:"persistence_enabled,omitempty"` // 是否启用持久化
+	StorageStats       *StorageStats          `protobuf:"bytes,2,opt,name=storage_stats,json=storageStats,proto3" json:"storage_stats,omitempty"`                    // 存储统计信息
+	Error              string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`                                                      // 如果查询失败，包含错误信息
+	CheckedAt          *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=checked_at,json=checkedAt,proto3" json:"checked_at,omitempty"`                             // 检查时间
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *GetStorageStatusReply) Reset() {
+	*x = GetStorageStatusReply{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStorageStatusReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStorageStatusReply) ProtoMessage() {}
+
+func (x *GetStorageStatusReply) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStorageStatusReply.ProtoReflect.Descriptor instead.
+func (*GetStorageStatusReply) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *GetStorageStatusReply) GetPersistenceEnabled() bool {
+	if x != nil {
+		return x.PersistenceEnabled
+	}
+	return false
+}
+
+func (x *GetStorageStatusReply) GetStorageStats() *StorageStats {
+	if x != nil {
+		return x.StorageStats
+	}
+	return nil
+}
+
+func (x *GetStorageStatusReply) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *GetStorageStatusReply) GetCheckedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CheckedAt
+	}
+	return nil
+}
+
+// 存储迁移请求
+type MigrateStorageRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	SourceType      string                 `protobuf:"bytes,1,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"`                 // 源存储类型：memory 或 mongodb
+	TargetType      string                 `protobuf:"bytes,2,opt,name=target_type,json=targetType,proto3" json:"target_type,omitempty"`                 // 目标存储类型：memory 或 mongodb
+	VerifyMigration bool                   `protobuf:"varint,3,opt,name=verify_migration,json=verifyMigration,proto3" json:"verify_migration,omitempty"` // 是否验证迁移结果
+	ForceMigration  bool                   `protobuf:"varint,4,opt,name=force_migration,json=forceMigration,proto3" json:"force_migration,omitempty"`    // 是否强制迁移（覆盖目标数据）
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *MigrateStorageRequest) Reset() {
+	*x = MigrateStorageRequest{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MigrateStorageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MigrateStorageRequest) ProtoMessage() {}
+
+func (x *MigrateStorageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MigrateStorageRequest.ProtoReflect.Descriptor instead.
+func (*MigrateStorageRequest) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *MigrateStorageRequest) GetSourceType() string {
+	if x != nil {
+		return x.SourceType
+	}
+	return ""
+}
+
+func (x *MigrateStorageRequest) GetTargetType() string {
+	if x != nil {
+		return x.TargetType
+	}
+	return ""
+}
+
+func (x *MigrateStorageRequest) GetVerifyMigration() bool {
+	if x != nil {
+		return x.VerifyMigration
+	}
+	return false
+}
+
+func (x *MigrateStorageRequest) GetForceMigration() bool {
+	if x != nil {
+		return x.ForceMigration
+	}
+	return false
+}
+
+// 迁移统计信息
+type MigrationStatsProto struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	ConsumerGroupsMigrated  uint64                 `protobuf:"varint,1,opt,name=consumer_groups_migrated,json=consumerGroupsMigrated,proto3" json:"consumer_groups_migrated,omitempty"`    // 迁移的消费者组数量
+	ConsumerOffsetsMigrated uint64                 `protobuf:"varint,2,opt,name=consumer_offsets_migrated,json=consumerOffsetsMigrated,proto3" json:"consumer_offsets_migrated,omitempty"` // 迁移的消费者偏移量数量
+	SmartModulesMigrated    uint64                 `protobuf:"varint,3,opt,name=smart_modules_migrated,json=smartModulesMigrated,proto3" json:"smart_modules_migrated,omitempty"`          // 迁移的SmartModule数量
+	Errors                  []string               `protobuf:"bytes,4,rep,name=errors,proto3" json:"errors,omitempty"`                                                                     // 迁移过程中的错误
+	TotalMigrated           uint64                 `protobuf:"varint,5,opt,name=total_migrated,json=totalMigrated,proto3" json:"total_migrated,omitempty"`                                 // 总迁移项目数
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *MigrationStatsProto) Reset() {
+	*x = MigrationStatsProto{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MigrationStatsProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MigrationStatsProto) ProtoMessage() {}
+
+func (x *MigrationStatsProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MigrationStatsProto.ProtoReflect.Descriptor instead.
+func (*MigrationStatsProto) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *MigrationStatsProto) GetConsumerGroupsMigrated() uint64 {
+	if x != nil {
+		return x.ConsumerGroupsMigrated
+	}
+	return 0
+}
+
+func (x *MigrationStatsProto) GetConsumerOffsetsMigrated() uint64 {
+	if x != nil {
+		return x.ConsumerOffsetsMigrated
+	}
+	return 0
+}
+
+func (x *MigrationStatsProto) GetSmartModulesMigrated() uint64 {
+	if x != nil {
+		return x.SmartModulesMigrated
+	}
+	return 0
+}
+
+func (x *MigrationStatsProto) GetErrors() []string {
+	if x != nil {
+		return x.Errors
+	}
+	return nil
+}
+
+func (x *MigrationStatsProto) GetTotalMigrated() uint64 {
+	if x != nil {
+		return x.TotalMigrated
+	}
+	return 0
+}
+
+// 存储迁移响应
+type MigrateStorageReply struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Success            bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`                                                 // 迁移是否成功
+	MigrationStats     *MigrationStatsProto   `protobuf:"bytes,2,opt,name=migration_stats,json=migrationStats,proto3" json:"migration_stats,omitempty"`              // 迁移统计信息
+	VerificationPassed bool                   `protobuf:"varint,3,opt,name=verification_passed,json=verificationPassed,proto3" json:"verification_passed,omitempty"` // 验证是否通过（如果启用验证）
+	Error              string                 `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`                                                      // 如果迁移失败，包含错误信息
+	CompletedAt        *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`                       // 迁移完成时间
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *MigrateStorageReply) Reset() {
+	*x = MigrateStorageReply{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MigrateStorageReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MigrateStorageReply) ProtoMessage() {}
+
+func (x *MigrateStorageReply) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MigrateStorageReply.ProtoReflect.Descriptor instead.
+func (*MigrateStorageReply) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *MigrateStorageReply) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *MigrateStorageReply) GetMigrationStats() *MigrationStatsProto {
+	if x != nil {
+		return x.MigrationStats
+	}
+	return nil
+}
+
+func (x *MigrateStorageReply) GetVerificationPassed() bool {
+	if x != nil {
+		return x.VerificationPassed
+	}
+	return false
+}
+
+func (x *MigrateStorageReply) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *MigrateStorageReply) GetCompletedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CompletedAt
+	}
+	return nil
+}
+
+// 获取存储指标请求
+type GetStorageMetricsRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	IncludeHistory bool                   `protobuf:"varint,1,opt,name=include_history,json=includeHistory,proto3" json:"include_history,omitempty"` // 是否包含历史指标
+	HistoryLimit   uint32                 `protobuf:"varint,2,opt,name=history_limit,json=historyLimit,proto3" json:"history_limit,omitempty"`       // 历史记录限制数量
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetStorageMetricsRequest) Reset() {
+	*x = GetStorageMetricsRequest{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStorageMetricsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStorageMetricsRequest) ProtoMessage() {}
+
+func (x *GetStorageMetricsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStorageMetricsRequest.ProtoReflect.Descriptor instead.
+func (*GetStorageMetricsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *GetStorageMetricsRequest) GetIncludeHistory() bool {
+	if x != nil {
+		return x.IncludeHistory
+	}
+	return false
+}
+
+func (x *GetStorageMetricsRequest) GetHistoryLimit() uint32 {
+	if x != nil {
+		return x.HistoryLimit
+	}
+	return 0
+}
+
+// 存储性能指标
+type StorageMetricsProto struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	StorageType         string                 `protobuf:"bytes,1,opt,name=storage_type,json=storageType,proto3" json:"storage_type,omitempty"`                             // 存储类型
+	ResponseTimeMs      uint64                 `protobuf:"varint,2,opt,name=response_time_ms,json=responseTimeMs,proto3" json:"response_time_ms,omitempty"`                 // 响应时间（毫秒）
+	OperationsPerSecond float64                `protobuf:"fixed64,3,opt,name=operations_per_second,json=operationsPerSecond,proto3" json:"operations_per_second,omitempty"` // 每秒操作数
+	ErrorRate           float64                `protobuf:"fixed64,4,opt,name=error_rate,json=errorRate,proto3" json:"error_rate,omitempty"`                                 // 错误率
+	ConnectionPoolUsage float64                `protobuf:"fixed64,5,opt,name=connection_pool_usage,json=connectionPoolUsage,proto3" json:"connection_pool_usage,omitempty"` // 连接池使用率（百分比）
+	MemoryUsageMb       uint64                 `protobuf:"varint,6,opt,name=memory_usage_mb,json=memoryUsageMb,proto3" json:"memory_usage_mb,omitempty"`                    // 内存使用量（MB）
+	DiskUsageMb         uint64                 `protobuf:"varint,7,opt,name=disk_usage_mb,json=diskUsageMb,proto3" json:"disk_usage_mb,omitempty"`                          // 磁盘使用量（MB）
+	LastUpdated         *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`                             // 最后更新时间
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *StorageMetricsProto) Reset() {
+	*x = StorageMetricsProto{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StorageMetricsProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StorageMetricsProto) ProtoMessage() {}
+
+func (x *StorageMetricsProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StorageMetricsProto.ProtoReflect.Descriptor instead.
+func (*StorageMetricsProto) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *StorageMetricsProto) GetStorageType() string {
+	if x != nil {
+		return x.StorageType
+	}
+	return ""
+}
+
+func (x *StorageMetricsProto) GetResponseTimeMs() uint64 {
+	if x != nil {
+		return x.ResponseTimeMs
+	}
+	return 0
+}
+
+func (x *StorageMetricsProto) GetOperationsPerSecond() float64 {
+	if x != nil {
+		return x.OperationsPerSecond
+	}
+	return 0
+}
+
+func (x *StorageMetricsProto) GetErrorRate() float64 {
+	if x != nil {
+		return x.ErrorRate
+	}
+	return 0
+}
+
+func (x *StorageMetricsProto) GetConnectionPoolUsage() float64 {
+	if x != nil {
+		return x.ConnectionPoolUsage
+	}
+	return 0
+}
+
+func (x *StorageMetricsProto) GetMemoryUsageMb() uint64 {
+	if x != nil {
+		return x.MemoryUsageMb
+	}
+	return 0
+}
+
+func (x *StorageMetricsProto) GetDiskUsageMb() uint64 {
+	if x != nil {
+		return x.DiskUsageMb
+	}
+	return 0
+}
+
+func (x *StorageMetricsProto) GetLastUpdated() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastUpdated
+	}
+	return nil
+}
+
+// 存储健康检查结果
+type StorageHealthCheckResult struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Status         string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`                                          // 健康状态：healthy, warning, critical, unknown
+	ResponseTimeMs uint64                 `protobuf:"varint,2,opt,name=response_time_ms,json=responseTimeMs,proto3" json:"response_time_ms,omitempty"` // 响应时间（毫秒）
+	ErrorMessage   string                 `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`          // 错误信息（如果有）
+	CheckedAt      *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=checked_at,json=checkedAt,proto3" json:"checked_at,omitempty"`                   // 检查时间
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *StorageHealthCheckResult) Reset() {
+	*x = StorageHealthCheckResult{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StorageHealthCheckResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StorageHealthCheckResult) ProtoMessage() {}
+
+func (x *StorageHealthCheckResult) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StorageHealthCheckResult.ProtoReflect.Descriptor instead.
+func (*StorageHealthCheckResult) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *StorageHealthCheckResult) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *StorageHealthCheckResult) GetResponseTimeMs() uint64 {
+	if x != nil {
+		return x.ResponseTimeMs
+	}
+	return 0
+}
+
+func (x *StorageHealthCheckResult) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *StorageHealthCheckResult) GetCheckedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CheckedAt
+	}
+	return nil
+}
+
+// 获取存储指标响应
+type GetStorageMetricsReply struct {
+	state          protoimpl.MessageState    `protogen:"open.v1"`
+	CurrentMetrics *StorageMetricsProto      `protobuf:"bytes,1,opt,name=current_metrics,json=currentMetrics,proto3" json:"current_metrics,omitempty"` // 当前指标
+	MetricsHistory []*StorageMetricsProto    `protobuf:"bytes,2,rep,name=metrics_history,json=metricsHistory,proto3" json:"metrics_history,omitempty"` // 历史指标
+	HealthStatus   *StorageHealthCheckResult `protobuf:"bytes,3,opt,name=health_status,json=healthStatus,proto3" json:"health_status,omitempty"`       // 健康状态
+	Alerts         []string                  `protobuf:"bytes,4,rep,name=alerts,proto3" json:"alerts,omitempty"`                                       // 告警信息
+	Error          string                    `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`                                         // 如果查询失败，包含错误信息
+	CollectedAt    *timestamppb.Timestamp    `protobuf:"bytes,6,opt,name=collected_at,json=collectedAt,proto3" json:"collected_at,omitempty"`          // 收集时间
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetStorageMetricsReply) Reset() {
+	*x = GetStorageMetricsReply{}
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStorageMetricsReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStorageMetricsReply) ProtoMessage() {}
+
+func (x *GetStorageMetricsReply) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fluvio_grpc_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStorageMetricsReply.ProtoReflect.Descriptor instead.
+func (*GetStorageMetricsReply) Descriptor() ([]byte, []int) {
+	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *GetStorageMetricsReply) GetCurrentMetrics() *StorageMetricsProto {
+	if x != nil {
+		return x.CurrentMetrics
+	}
+	return nil
+}
+
+func (x *GetStorageMetricsReply) GetMetricsHistory() []*StorageMetricsProto {
+	if x != nil {
+		return x.MetricsHistory
+	}
+	return nil
+}
+
+func (x *GetStorageMetricsReply) GetHealthStatus() *StorageHealthCheckResult {
+	if x != nil {
+		return x.HealthStatus
+	}
+	return nil
+}
+
+func (x *GetStorageMetricsReply) GetAlerts() []string {
+	if x != nil {
+		return x.Alerts
+	}
+	return nil
+}
+
+func (x *GetStorageMetricsReply) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *GetStorageMetricsReply) GetCollectedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CollectedAt
+	}
+	return nil
 }
 
 var File_proto_fluvio_grpc_proto protoreflect.FileDescriptor
@@ -2994,11 +4834,157 @@ const file_proto_fluvio_grpc_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"V\n" +
 	"\x0fGetMetricsReply\x12-\n" +
 	"\ametrics\x18\x01 \x03(\v2\x13.fluvio_grpc.MetricR\ametrics\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\"\x14\n" +
-	"\x12HealthCheckRequest\"<\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"0\n" +
+	"\x12HealthCheckRequest\x12\x1a\n" +
+	"\bdetailed\x18\x01 \x01(\bR\bdetailed\"\x9c\x01\n" +
+	"\x0fComponentHealth\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x121\n" +
+	"\x06status\x18\x02 \x01(\x0e2\x19.fluvio_grpc.HealthStatusR\x06status\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\x12(\n" +
+	"\x10response_time_ms\x18\x04 \x01(\x03R\x0eresponseTimeMs\"\xe7\x01\n" +
 	"\x10HealthCheckReply\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage*o\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x121\n" +
+	"\x06status\x18\x03 \x01(\x0e2\x19.fluvio_grpc.HealthStatusR\x06status\x128\n" +
+	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12<\n" +
+	"\n" +
+	"components\x18\x05 \x03(\v2\x1c.fluvio_grpc.ComponentHealthR\n" +
+	"components\"\x86\x01\n" +
+	"\x0fFilterCondition\x12+\n" +
+	"\x04type\x18\x01 \x01(\x0e2\x17.fluvio_grpc.FilterTypeR\x04type\x12\x14\n" +
+	"\x05field\x18\x02 \x01(\tR\x05field\x12\x1a\n" +
+	"\boperator\x18\x03 \x01(\tR\boperator\x12\x14\n" +
+	"\x05value\x18\x04 \x01(\tR\x05value\"\xf2\x01\n" +
+	"\x16FilteredConsumeRequest\x12\x14\n" +
+	"\x05topic\x18\x01 \x01(\tR\x05topic\x12!\n" +
+	"\fmax_messages\x18\x02 \x01(\x05R\vmaxMessages\x12\x16\n" +
+	"\x06offset\x18\x03 \x01(\x03R\x06offset\x12\x14\n" +
+	"\x05group\x18\x04 \x01(\tR\x05group\x12\x1c\n" +
+	"\tpartition\x18\x05 \x01(\x05R\tpartition\x126\n" +
+	"\afilters\x18\x06 \x03(\v2\x1c.fluvio_grpc.FilterConditionR\afilters\x12\x1b\n" +
+	"\tand_logic\x18\a \x01(\bR\bandLogic\"\xd3\x01\n" +
+	"\x14FilteredConsumeReply\x128\n" +
+	"\bmessages\x18\x01 \x03(\v2\x1c.fluvio_grpc.ConsumedMessageR\bmessages\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\x12\x1f\n" +
+	"\vnext_offset\x18\x03 \x01(\x03R\n" +
+	"nextOffset\x12#\n" +
+	"\rtotal_scanned\x18\x04 \x01(\x05R\ftotalScanned\x12%\n" +
+	"\x0efiltered_count\x18\x05 \x01(\x05R\rfilteredCount\"\x8f\x01\n" +
+	"\x11BulkDeleteRequest\x12\x16\n" +
+	"\x06topics\x18\x01 \x03(\tR\x06topics\x12'\n" +
+	"\x0fconsumer_groups\x18\x02 \x03(\tR\x0econsumerGroups\x12#\n" +
+	"\rsmart_modules\x18\x03 \x03(\tR\fsmartModules\x12\x14\n" +
+	"\x05force\x18\x04 \x01(\bR\x05force\"j\n" +
+	"\x10BulkDeleteResult\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
+	"\x04type\x18\x02 \x01(\tR\x04type\x12\x18\n" +
+	"\asuccess\x18\x03 \x01(\bR\asuccess\x12\x14\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\"\xc9\x01\n" +
+	"\x0fBulkDeleteReply\x127\n" +
+	"\aresults\x18\x01 \x03(\v2\x1d.fluvio_grpc.BulkDeleteResultR\aresults\x12'\n" +
+	"\x0ftotal_requested\x18\x02 \x01(\x05R\x0etotalRequested\x12-\n" +
+	"\x12successful_deletes\x18\x03 \x01(\x05R\x11successfulDeletes\x12%\n" +
+	"\x0efailed_deletes\x18\x04 \x01(\x05R\rfailedDeletes\"[\n" +
+	"\x14GetTopicStatsRequest\x12\x14\n" +
+	"\x05topic\x18\x01 \x01(\tR\x05topic\x12-\n" +
+	"\x12include_partitions\x18\x02 \x01(\bR\x11includePartitions\"\x8f\x02\n" +
+	"\x0ePartitionStats\x12!\n" +
+	"\fpartition_id\x18\x01 \x01(\x05R\vpartitionId\x12#\n" +
+	"\rmessage_count\x18\x02 \x01(\x03R\fmessageCount\x12(\n" +
+	"\x10total_size_bytes\x18\x03 \x01(\x03R\x0etotalSizeBytes\x12'\n" +
+	"\x0fearliest_offset\x18\x04 \x01(\x03R\x0eearliestOffset\x12#\n" +
+	"\rlatest_offset\x18\x05 \x01(\x03R\flatestOffset\x12=\n" +
+	"\flast_updated\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\vlastUpdated\"\x8b\x03\n" +
+	"\n" +
+	"TopicStats\x12\x14\n" +
+	"\x05topic\x18\x01 \x01(\tR\x05topic\x12'\n" +
+	"\x0fpartition_count\x18\x02 \x01(\x05R\x0epartitionCount\x12-\n" +
+	"\x12replication_factor\x18\x03 \x01(\x05R\x11replicationFactor\x12.\n" +
+	"\x13total_message_count\x18\x04 \x01(\x03R\x11totalMessageCount\x12(\n" +
+	"\x10total_size_bytes\x18\x05 \x01(\x03R\x0etotalSizeBytes\x12;\n" +
+	"\n" +
+	"partitions\x18\x06 \x03(\v2\x1b.fluvio_grpc.PartitionStatsR\n" +
+	"partitions\x129\n" +
+	"\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12=\n" +
+	"\flast_updated\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vlastUpdated\"\x9a\x01\n" +
+	"\x12GetTopicStatsReply\x12/\n" +
+	"\x06topics\x18\x01 \x03(\v2\x17.fluvio_grpc.TopicStatsR\x06topics\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\x12=\n" +
+	"\fcollected_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vcollectedAt\"B\n" +
+	"\x17GetStorageStatusRequest\x12'\n" +
+	"\x0finclude_details\x18\x01 \x01(\bR\x0eincludeDetails\"\xba\x01\n" +
+	"\x16StorageConnectionStats\x12/\n" +
+	"\x13current_connections\x18\x01 \x01(\rR\x12currentConnections\x123\n" +
+	"\x15available_connections\x18\x02 \x01(\rR\x14availableConnections\x12:\n" +
+	"\x19total_created_connections\x18\x03 \x01(\rR\x17totalCreatedConnections\"\xc4\x01\n" +
+	"\x13StorageDatabaseInfo\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vcollections\x18\x02 \x01(\rR\vcollections\x12\x1b\n" +
+	"\tdata_size\x18\x03 \x01(\x04R\bdataSize\x12!\n" +
+	"\fstorage_size\x18\x04 \x01(\x04R\vstorageSize\x12\x18\n" +
+	"\aindexes\x18\x05 \x01(\rR\aindexes\x12\x1d\n" +
+	"\n" +
+	"index_size\x18\x06 \x01(\x04R\tindexSize\"\xee\x02\n" +
+	"\fStorageStats\x12!\n" +
+	"\fstorage_type\x18\x01 \x01(\tR\vstorageType\x12'\n" +
+	"\x0fconsumer_groups\x18\x02 \x01(\x04R\x0econsumerGroups\x12)\n" +
+	"\x10consumer_offsets\x18\x03 \x01(\x04R\x0fconsumerOffsets\x12#\n" +
+	"\rsmart_modules\x18\x04 \x01(\x04R\fsmartModules\x12+\n" +
+	"\x11connection_status\x18\x05 \x01(\tR\x10connectionStatus\x12N\n" +
+	"\x10connection_stats\x18\x06 \x01(\v2#.fluvio_grpc.StorageConnectionStatsR\x0fconnectionStats\x12E\n" +
+	"\rdatabase_info\x18\a \x01(\v2 .fluvio_grpc.StorageDatabaseInfoR\fdatabaseInfo\"\xd9\x01\n" +
+	"\x15GetStorageStatusReply\x12/\n" +
+	"\x13persistence_enabled\x18\x01 \x01(\bR\x12persistenceEnabled\x12>\n" +
+	"\rstorage_stats\x18\x02 \x01(\v2\x19.fluvio_grpc.StorageStatsR\fstorageStats\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\x129\n" +
+	"\n" +
+	"checked_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcheckedAt\"\xad\x01\n" +
+	"\x15MigrateStorageRequest\x12\x1f\n" +
+	"\vsource_type\x18\x01 \x01(\tR\n" +
+	"sourceType\x12\x1f\n" +
+	"\vtarget_type\x18\x02 \x01(\tR\n" +
+	"targetType\x12)\n" +
+	"\x10verify_migration\x18\x03 \x01(\bR\x0fverifyMigration\x12'\n" +
+	"\x0fforce_migration\x18\x04 \x01(\bR\x0eforceMigration\"\x80\x02\n" +
+	"\x13MigrationStatsProto\x128\n" +
+	"\x18consumer_groups_migrated\x18\x01 \x01(\x04R\x16consumerGroupsMigrated\x12:\n" +
+	"\x19consumer_offsets_migrated\x18\x02 \x01(\x04R\x17consumerOffsetsMigrated\x124\n" +
+	"\x16smart_modules_migrated\x18\x03 \x01(\x04R\x14smartModulesMigrated\x12\x16\n" +
+	"\x06errors\x18\x04 \x03(\tR\x06errors\x12%\n" +
+	"\x0etotal_migrated\x18\x05 \x01(\x04R\rtotalMigrated\"\x80\x02\n" +
+	"\x13MigrateStorageReply\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12I\n" +
+	"\x0fmigration_stats\x18\x02 \x01(\v2 .fluvio_grpc.MigrationStatsProtoR\x0emigrationStats\x12/\n" +
+	"\x13verification_passed\x18\x03 \x01(\bR\x12verificationPassed\x12\x14\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\x12=\n" +
+	"\fcompleted_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\"h\n" +
+	"\x18GetStorageMetricsRequest\x12'\n" +
+	"\x0finclude_history\x18\x01 \x01(\bR\x0eincludeHistory\x12#\n" +
+	"\rhistory_limit\x18\x02 \x01(\rR\fhistoryLimit\"\xf4\x02\n" +
+	"\x13StorageMetricsProto\x12!\n" +
+	"\fstorage_type\x18\x01 \x01(\tR\vstorageType\x12(\n" +
+	"\x10response_time_ms\x18\x02 \x01(\x04R\x0eresponseTimeMs\x122\n" +
+	"\x15operations_per_second\x18\x03 \x01(\x01R\x13operationsPerSecond\x12\x1d\n" +
+	"\n" +
+	"error_rate\x18\x04 \x01(\x01R\terrorRate\x122\n" +
+	"\x15connection_pool_usage\x18\x05 \x01(\x01R\x13connectionPoolUsage\x12&\n" +
+	"\x0fmemory_usage_mb\x18\x06 \x01(\x04R\rmemoryUsageMb\x12\"\n" +
+	"\rdisk_usage_mb\x18\a \x01(\x04R\vdiskUsageMb\x12=\n" +
+	"\flast_updated\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vlastUpdated\"\xbc\x01\n" +
+	"\x18StorageHealthCheckResult\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12(\n" +
+	"\x10response_time_ms\x18\x02 \x01(\x04R\x0eresponseTimeMs\x12#\n" +
+	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\x129\n" +
+	"\n" +
+	"checked_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcheckedAt\"\xe7\x02\n" +
+	"\x16GetStorageMetricsReply\x12I\n" +
+	"\x0fcurrent_metrics\x18\x01 \x01(\v2 .fluvio_grpc.StorageMetricsProtoR\x0ecurrentMetrics\x12I\n" +
+	"\x0fmetrics_history\x18\x02 \x03(\v2 .fluvio_grpc.StorageMetricsProtoR\x0emetricsHistory\x12J\n" +
+	"\rhealth_status\x18\x03 \x01(\v2%.fluvio_grpc.StorageHealthCheckResultR\fhealthStatus\x12\x16\n" +
+	"\x06alerts\x18\x04 \x03(\tR\x06alerts\x12\x14\n" +
+	"\x05error\x18\x05 \x01(\tR\x05error\x12=\n" +
+	"\fcollected_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\vcollectedAt*o\n" +
 	"\x10SmartModuleInput\x12\x1e\n" +
 	"\x1aSMART_MODULE_INPUT_UNKNOWN\x10\x00\x12\x1d\n" +
 	"\x19SMART_MODULE_INPUT_STREAM\x10\x01\x12\x1c\n" +
@@ -3006,7 +4992,19 @@ const file_proto_fluvio_grpc_proto_rawDesc = "" +
 	"\x11SmartModuleOutput\x12\x1f\n" +
 	"\x1bSMART_MODULE_OUTPUT_UNKNOWN\x10\x00\x12\x1e\n" +
 	"\x1aSMART_MODULE_OUTPUT_STREAM\x10\x01\x12\x1d\n" +
-	"\x19SMART_MODULE_OUTPUT_TABLE\x10\x022\xd4\v\n" +
+	"\x19SMART_MODULE_OUTPUT_TABLE\x10\x02*E\n" +
+	"\fHealthStatus\x12\v\n" +
+	"\aUNKNOWN\x10\x00\x12\v\n" +
+	"\aHEALTHY\x10\x01\x12\f\n" +
+	"\bDEGRADED\x10\x02\x12\r\n" +
+	"\tUNHEALTHY\x10\x03*\x86\x01\n" +
+	"\n" +
+	"FilterType\x12\x17\n" +
+	"\x13FILTER_TYPE_UNKNOWN\x10\x00\x12\x13\n" +
+	"\x0fFILTER_TYPE_KEY\x10\x01\x12\x16\n" +
+	"\x12FILTER_TYPE_HEADER\x10\x02\x12\x17\n" +
+	"\x13FILTER_TYPE_CONTENT\x10\x03\x12\x19\n" +
+	"\x15FILTER_TYPE_TIMESTAMP\x10\x042\xe7\x0f\n" +
 	"\rFluvioService\x12A\n" +
 	"\aProduce\x12\x1b.fluvio_grpc.ProduceRequest\x1a\x19.fluvio_grpc.ProduceReply\x12P\n" +
 	"\fBatchProduce\x12 .fluvio_grpc.BatchProduceRequest\x1a\x1e.fluvio_grpc.BatchProduceReply\x12A\n" +
@@ -3024,7 +5022,14 @@ const file_proto_fluvio_grpc_proto_rawDesc = "" +
 	"\x11DeleteSmartModule\x12%.fluvio_grpc.DeleteSmartModuleRequest\x1a#.fluvio_grpc.DeleteSmartModuleReply\x12\\\n" +
 	"\x10ListSmartModules\x12$.fluvio_grpc.ListSmartModulesRequest\x1a\".fluvio_grpc.ListSmartModulesReply\x12e\n" +
 	"\x13DescribeSmartModule\x12'.fluvio_grpc.DescribeSmartModuleRequest\x1a%.fluvio_grpc.DescribeSmartModuleReply\x12_\n" +
-	"\x11UpdateSmartModule\x12%.fluvio_grpc.UpdateSmartModuleRequest\x1a#.fluvio_grpc.UpdateSmartModuleReply\x12M\n" +
+	"\x11UpdateSmartModule\x12%.fluvio_grpc.UpdateSmartModuleRequest\x1a#.fluvio_grpc.UpdateSmartModuleReply\x12Y\n" +
+	"\x0fFilteredConsume\x12#.fluvio_grpc.FilteredConsumeRequest\x1a!.fluvio_grpc.FilteredConsumeReply\x12J\n" +
+	"\n" +
+	"BulkDelete\x12\x1e.fluvio_grpc.BulkDeleteRequest\x1a\x1c.fluvio_grpc.BulkDeleteReply\x12S\n" +
+	"\rGetTopicStats\x12!.fluvio_grpc.GetTopicStatsRequest\x1a\x1f.fluvio_grpc.GetTopicStatsReply\x12\\\n" +
+	"\x10GetStorageStatus\x12$.fluvio_grpc.GetStorageStatusRequest\x1a\".fluvio_grpc.GetStorageStatusReply\x12V\n" +
+	"\x0eMigrateStorage\x12\".fluvio_grpc.MigrateStorageRequest\x1a .fluvio_grpc.MigrateStorageReply\x12_\n" +
+	"\x11GetStorageMetrics\x12%.fluvio_grpc.GetStorageMetricsRequest\x1a#.fluvio_grpc.GetStorageMetricsReply\x12M\n" +
 	"\vHealthCheck\x12\x1f.fluvio_grpc.HealthCheckRequest\x1a\x1d.fluvio_grpc.HealthCheckReply2\x8a\x02\n" +
 	"\x12FluvioAdminService\x12Y\n" +
 	"\x0fDescribeCluster\x12#.fluvio_grpc.DescribeClusterRequest\x1a!.fluvio_grpc.DescribeClusterReply\x12M\n" +
@@ -3044,134 +5049,197 @@ func file_proto_fluvio_grpc_proto_rawDescGZIP() []byte {
 	return file_proto_fluvio_grpc_proto_rawDescData
 }
 
-var file_proto_fluvio_grpc_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_fluvio_grpc_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
+var file_proto_fluvio_grpc_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_proto_fluvio_grpc_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
 var file_proto_fluvio_grpc_proto_goTypes = []any{
 	(SmartModuleInput)(0),                // 0: fluvio_grpc.SmartModuleInput
 	(SmartModuleOutput)(0),               // 1: fluvio_grpc.SmartModuleOutput
-	(*ProduceRequest)(nil),               // 2: fluvio_grpc.ProduceRequest
-	(*ProduceReply)(nil),                 // 3: fluvio_grpc.ProduceReply
-	(*BatchProduceRequest)(nil),          // 4: fluvio_grpc.BatchProduceRequest
-	(*BatchProduceReply)(nil),            // 5: fluvio_grpc.BatchProduceReply
-	(*ConsumeRequest)(nil),               // 6: fluvio_grpc.ConsumeRequest
-	(*ConsumedMessage)(nil),              // 7: fluvio_grpc.ConsumedMessage
-	(*ConsumeReply)(nil),                 // 8: fluvio_grpc.ConsumeReply
-	(*StreamConsumeRequest)(nil),         // 9: fluvio_grpc.StreamConsumeRequest
-	(*CommitOffsetRequest)(nil),          // 10: fluvio_grpc.CommitOffsetRequest
-	(*CommitOffsetReply)(nil),            // 11: fluvio_grpc.CommitOffsetReply
-	(*CreateTopicRequest)(nil),           // 12: fluvio_grpc.CreateTopicRequest
-	(*CreateTopicReply)(nil),             // 13: fluvio_grpc.CreateTopicReply
-	(*DeleteTopicRequest)(nil),           // 14: fluvio_grpc.DeleteTopicRequest
-	(*DeleteTopicReply)(nil),             // 15: fluvio_grpc.DeleteTopicReply
-	(*ListTopicsRequest)(nil),            // 16: fluvio_grpc.ListTopicsRequest
-	(*ListTopicsReply)(nil),              // 17: fluvio_grpc.ListTopicsReply
-	(*DescribeTopicRequest)(nil),         // 18: fluvio_grpc.DescribeTopicRequest
-	(*PartitionInfo)(nil),                // 19: fluvio_grpc.PartitionInfo
-	(*DescribeTopicReply)(nil),           // 20: fluvio_grpc.DescribeTopicReply
-	(*ListConsumerGroupsRequest)(nil),    // 21: fluvio_grpc.ListConsumerGroupsRequest
-	(*ConsumerGroupInfo)(nil),            // 22: fluvio_grpc.ConsumerGroupInfo
-	(*ListConsumerGroupsReply)(nil),      // 23: fluvio_grpc.ListConsumerGroupsReply
-	(*DescribeConsumerGroupRequest)(nil), // 24: fluvio_grpc.DescribeConsumerGroupRequest
-	(*ConsumerGroupOffsetInfo)(nil),      // 25: fluvio_grpc.ConsumerGroupOffsetInfo
-	(*DescribeConsumerGroupReply)(nil),   // 26: fluvio_grpc.DescribeConsumerGroupReply
-	(*SmartModuleParameter)(nil),         // 27: fluvio_grpc.SmartModuleParameter
-	(*SmartModuleSpec)(nil),              // 28: fluvio_grpc.SmartModuleSpec
-	(*CreateSmartModuleRequest)(nil),     // 29: fluvio_grpc.CreateSmartModuleRequest
-	(*CreateSmartModuleReply)(nil),       // 30: fluvio_grpc.CreateSmartModuleReply
-	(*DeleteSmartModuleRequest)(nil),     // 31: fluvio_grpc.DeleteSmartModuleRequest
-	(*DeleteSmartModuleReply)(nil),       // 32: fluvio_grpc.DeleteSmartModuleReply
-	(*ListSmartModulesRequest)(nil),      // 33: fluvio_grpc.ListSmartModulesRequest
-	(*ListSmartModulesReply)(nil),        // 34: fluvio_grpc.ListSmartModulesReply
-	(*DescribeSmartModuleRequest)(nil),   // 35: fluvio_grpc.DescribeSmartModuleRequest
-	(*DescribeSmartModuleReply)(nil),     // 36: fluvio_grpc.DescribeSmartModuleReply
-	(*UpdateSmartModuleRequest)(nil),     // 37: fluvio_grpc.UpdateSmartModuleRequest
-	(*UpdateSmartModuleReply)(nil),       // 38: fluvio_grpc.UpdateSmartModuleReply
-	(*DescribeClusterRequest)(nil),       // 39: fluvio_grpc.DescribeClusterRequest
-	(*DescribeClusterReply)(nil),         // 40: fluvio_grpc.DescribeClusterReply
-	(*ListBrokersRequest)(nil),           // 41: fluvio_grpc.ListBrokersRequest
-	(*BrokerInfo)(nil),                   // 42: fluvio_grpc.BrokerInfo
-	(*ListBrokersReply)(nil),             // 43: fluvio_grpc.ListBrokersReply
-	(*GetMetricsRequest)(nil),            // 44: fluvio_grpc.GetMetricsRequest
-	(*Metric)(nil),                       // 45: fluvio_grpc.Metric
-	(*GetMetricsReply)(nil),              // 46: fluvio_grpc.GetMetricsReply
-	(*HealthCheckRequest)(nil),           // 47: fluvio_grpc.HealthCheckRequest
-	(*HealthCheckReply)(nil),             // 48: fluvio_grpc.HealthCheckReply
-	nil,                                  // 49: fluvio_grpc.ProduceRequest.HeadersEntry
-	nil,                                  // 50: fluvio_grpc.ConsumedMessage.HeadersEntry
-	nil,                                  // 51: fluvio_grpc.CreateTopicRequest.ConfigEntry
-	nil,                                  // 52: fluvio_grpc.DescribeTopicReply.ConfigEntry
-	nil,                                  // 53: fluvio_grpc.GetMetricsRequest.LabelsEntry
-	nil,                                  // 54: fluvio_grpc.Metric.LabelsEntry
-	(*timestamppb.Timestamp)(nil),        // 55: google.protobuf.Timestamp
+	(HealthStatus)(0),                    // 2: fluvio_grpc.HealthStatus
+	(FilterType)(0),                      // 3: fluvio_grpc.FilterType
+	(*ProduceRequest)(nil),               // 4: fluvio_grpc.ProduceRequest
+	(*ProduceReply)(nil),                 // 5: fluvio_grpc.ProduceReply
+	(*BatchProduceRequest)(nil),          // 6: fluvio_grpc.BatchProduceRequest
+	(*BatchProduceReply)(nil),            // 7: fluvio_grpc.BatchProduceReply
+	(*ConsumeRequest)(nil),               // 8: fluvio_grpc.ConsumeRequest
+	(*ConsumedMessage)(nil),              // 9: fluvio_grpc.ConsumedMessage
+	(*ConsumeReply)(nil),                 // 10: fluvio_grpc.ConsumeReply
+	(*StreamConsumeRequest)(nil),         // 11: fluvio_grpc.StreamConsumeRequest
+	(*CommitOffsetRequest)(nil),          // 12: fluvio_grpc.CommitOffsetRequest
+	(*CommitOffsetReply)(nil),            // 13: fluvio_grpc.CommitOffsetReply
+	(*CreateTopicRequest)(nil),           // 14: fluvio_grpc.CreateTopicRequest
+	(*CreateTopicReply)(nil),             // 15: fluvio_grpc.CreateTopicReply
+	(*DeleteTopicRequest)(nil),           // 16: fluvio_grpc.DeleteTopicRequest
+	(*DeleteTopicReply)(nil),             // 17: fluvio_grpc.DeleteTopicReply
+	(*ListTopicsRequest)(nil),            // 18: fluvio_grpc.ListTopicsRequest
+	(*ListTopicsReply)(nil),              // 19: fluvio_grpc.ListTopicsReply
+	(*DescribeTopicRequest)(nil),         // 20: fluvio_grpc.DescribeTopicRequest
+	(*PartitionInfo)(nil),                // 21: fluvio_grpc.PartitionInfo
+	(*DescribeTopicReply)(nil),           // 22: fluvio_grpc.DescribeTopicReply
+	(*ListConsumerGroupsRequest)(nil),    // 23: fluvio_grpc.ListConsumerGroupsRequest
+	(*ConsumerGroupInfo)(nil),            // 24: fluvio_grpc.ConsumerGroupInfo
+	(*ListConsumerGroupsReply)(nil),      // 25: fluvio_grpc.ListConsumerGroupsReply
+	(*DescribeConsumerGroupRequest)(nil), // 26: fluvio_grpc.DescribeConsumerGroupRequest
+	(*ConsumerGroupOffsetInfo)(nil),      // 27: fluvio_grpc.ConsumerGroupOffsetInfo
+	(*DescribeConsumerGroupReply)(nil),   // 28: fluvio_grpc.DescribeConsumerGroupReply
+	(*SmartModuleParameter)(nil),         // 29: fluvio_grpc.SmartModuleParameter
+	(*SmartModuleSpec)(nil),              // 30: fluvio_grpc.SmartModuleSpec
+	(*CreateSmartModuleRequest)(nil),     // 31: fluvio_grpc.CreateSmartModuleRequest
+	(*CreateSmartModuleReply)(nil),       // 32: fluvio_grpc.CreateSmartModuleReply
+	(*DeleteSmartModuleRequest)(nil),     // 33: fluvio_grpc.DeleteSmartModuleRequest
+	(*DeleteSmartModuleReply)(nil),       // 34: fluvio_grpc.DeleteSmartModuleReply
+	(*ListSmartModulesRequest)(nil),      // 35: fluvio_grpc.ListSmartModulesRequest
+	(*ListSmartModulesReply)(nil),        // 36: fluvio_grpc.ListSmartModulesReply
+	(*DescribeSmartModuleRequest)(nil),   // 37: fluvio_grpc.DescribeSmartModuleRequest
+	(*DescribeSmartModuleReply)(nil),     // 38: fluvio_grpc.DescribeSmartModuleReply
+	(*UpdateSmartModuleRequest)(nil),     // 39: fluvio_grpc.UpdateSmartModuleRequest
+	(*UpdateSmartModuleReply)(nil),       // 40: fluvio_grpc.UpdateSmartModuleReply
+	(*DescribeClusterRequest)(nil),       // 41: fluvio_grpc.DescribeClusterRequest
+	(*DescribeClusterReply)(nil),         // 42: fluvio_grpc.DescribeClusterReply
+	(*ListBrokersRequest)(nil),           // 43: fluvio_grpc.ListBrokersRequest
+	(*BrokerInfo)(nil),                   // 44: fluvio_grpc.BrokerInfo
+	(*ListBrokersReply)(nil),             // 45: fluvio_grpc.ListBrokersReply
+	(*GetMetricsRequest)(nil),            // 46: fluvio_grpc.GetMetricsRequest
+	(*Metric)(nil),                       // 47: fluvio_grpc.Metric
+	(*GetMetricsReply)(nil),              // 48: fluvio_grpc.GetMetricsReply
+	(*HealthCheckRequest)(nil),           // 49: fluvio_grpc.HealthCheckRequest
+	(*ComponentHealth)(nil),              // 50: fluvio_grpc.ComponentHealth
+	(*HealthCheckReply)(nil),             // 51: fluvio_grpc.HealthCheckReply
+	(*FilterCondition)(nil),              // 52: fluvio_grpc.FilterCondition
+	(*FilteredConsumeRequest)(nil),       // 53: fluvio_grpc.FilteredConsumeRequest
+	(*FilteredConsumeReply)(nil),         // 54: fluvio_grpc.FilteredConsumeReply
+	(*BulkDeleteRequest)(nil),            // 55: fluvio_grpc.BulkDeleteRequest
+	(*BulkDeleteResult)(nil),             // 56: fluvio_grpc.BulkDeleteResult
+	(*BulkDeleteReply)(nil),              // 57: fluvio_grpc.BulkDeleteReply
+	(*GetTopicStatsRequest)(nil),         // 58: fluvio_grpc.GetTopicStatsRequest
+	(*PartitionStats)(nil),               // 59: fluvio_grpc.PartitionStats
+	(*TopicStats)(nil),                   // 60: fluvio_grpc.TopicStats
+	(*GetTopicStatsReply)(nil),           // 61: fluvio_grpc.GetTopicStatsReply
+	(*GetStorageStatusRequest)(nil),      // 62: fluvio_grpc.GetStorageStatusRequest
+	(*StorageConnectionStats)(nil),       // 63: fluvio_grpc.StorageConnectionStats
+	(*StorageDatabaseInfo)(nil),          // 64: fluvio_grpc.StorageDatabaseInfo
+	(*StorageStats)(nil),                 // 65: fluvio_grpc.StorageStats
+	(*GetStorageStatusReply)(nil),        // 66: fluvio_grpc.GetStorageStatusReply
+	(*MigrateStorageRequest)(nil),        // 67: fluvio_grpc.MigrateStorageRequest
+	(*MigrationStatsProto)(nil),          // 68: fluvio_grpc.MigrationStatsProto
+	(*MigrateStorageReply)(nil),          // 69: fluvio_grpc.MigrateStorageReply
+	(*GetStorageMetricsRequest)(nil),     // 70: fluvio_grpc.GetStorageMetricsRequest
+	(*StorageMetricsProto)(nil),          // 71: fluvio_grpc.StorageMetricsProto
+	(*StorageHealthCheckResult)(nil),     // 72: fluvio_grpc.StorageHealthCheckResult
+	(*GetStorageMetricsReply)(nil),       // 73: fluvio_grpc.GetStorageMetricsReply
+	nil,                                  // 74: fluvio_grpc.ProduceRequest.HeadersEntry
+	nil,                                  // 75: fluvio_grpc.ConsumedMessage.HeadersEntry
+	nil,                                  // 76: fluvio_grpc.CreateTopicRequest.ConfigEntry
+	nil,                                  // 77: fluvio_grpc.DescribeTopicReply.ConfigEntry
+	nil,                                  // 78: fluvio_grpc.GetMetricsRequest.LabelsEntry
+	nil,                                  // 79: fluvio_grpc.Metric.LabelsEntry
+	(*timestamppb.Timestamp)(nil),        // 80: google.protobuf.Timestamp
 }
 var file_proto_fluvio_grpc_proto_depIdxs = []int32{
-	49, // 0: fluvio_grpc.ProduceRequest.headers:type_name -> fluvio_grpc.ProduceRequest.HeadersEntry
-	55, // 1: fluvio_grpc.ProduceRequest.timestamp:type_name -> google.protobuf.Timestamp
-	2,  // 2: fluvio_grpc.BatchProduceRequest.messages:type_name -> fluvio_grpc.ProduceRequest
-	50, // 3: fluvio_grpc.ConsumedMessage.headers:type_name -> fluvio_grpc.ConsumedMessage.HeadersEntry
-	7,  // 4: fluvio_grpc.ConsumeReply.messages:type_name -> fluvio_grpc.ConsumedMessage
-	51, // 5: fluvio_grpc.CreateTopicRequest.config:type_name -> fluvio_grpc.CreateTopicRequest.ConfigEntry
-	52, // 6: fluvio_grpc.DescribeTopicReply.config:type_name -> fluvio_grpc.DescribeTopicReply.ConfigEntry
-	19, // 7: fluvio_grpc.DescribeTopicReply.partitions:type_name -> fluvio_grpc.PartitionInfo
-	22, // 8: fluvio_grpc.ListConsumerGroupsReply.groups:type_name -> fluvio_grpc.ConsumerGroupInfo
-	25, // 9: fluvio_grpc.DescribeConsumerGroupReply.offsets:type_name -> fluvio_grpc.ConsumerGroupOffsetInfo
+	74, // 0: fluvio_grpc.ProduceRequest.headers:type_name -> fluvio_grpc.ProduceRequest.HeadersEntry
+	80, // 1: fluvio_grpc.ProduceRequest.timestamp:type_name -> google.protobuf.Timestamp
+	4,  // 2: fluvio_grpc.BatchProduceRequest.messages:type_name -> fluvio_grpc.ProduceRequest
+	75, // 3: fluvio_grpc.ConsumedMessage.headers:type_name -> fluvio_grpc.ConsumedMessage.HeadersEntry
+	9,  // 4: fluvio_grpc.ConsumeReply.messages:type_name -> fluvio_grpc.ConsumedMessage
+	76, // 5: fluvio_grpc.CreateTopicRequest.config:type_name -> fluvio_grpc.CreateTopicRequest.ConfigEntry
+	77, // 6: fluvio_grpc.DescribeTopicReply.config:type_name -> fluvio_grpc.DescribeTopicReply.ConfigEntry
+	21, // 7: fluvio_grpc.DescribeTopicReply.partitions:type_name -> fluvio_grpc.PartitionInfo
+	24, // 8: fluvio_grpc.ListConsumerGroupsReply.groups:type_name -> fluvio_grpc.ConsumerGroupInfo
+	27, // 9: fluvio_grpc.DescribeConsumerGroupReply.offsets:type_name -> fluvio_grpc.ConsumerGroupOffsetInfo
 	0,  // 10: fluvio_grpc.SmartModuleSpec.input_kind:type_name -> fluvio_grpc.SmartModuleInput
 	1,  // 11: fluvio_grpc.SmartModuleSpec.output_kind:type_name -> fluvio_grpc.SmartModuleOutput
-	27, // 12: fluvio_grpc.SmartModuleSpec.parameters:type_name -> fluvio_grpc.SmartModuleParameter
-	28, // 13: fluvio_grpc.CreateSmartModuleRequest.spec:type_name -> fluvio_grpc.SmartModuleSpec
-	28, // 14: fluvio_grpc.ListSmartModulesReply.modules:type_name -> fluvio_grpc.SmartModuleSpec
-	28, // 15: fluvio_grpc.DescribeSmartModuleReply.spec:type_name -> fluvio_grpc.SmartModuleSpec
-	28, // 16: fluvio_grpc.UpdateSmartModuleRequest.spec:type_name -> fluvio_grpc.SmartModuleSpec
-	42, // 17: fluvio_grpc.ListBrokersReply.brokers:type_name -> fluvio_grpc.BrokerInfo
-	53, // 18: fluvio_grpc.GetMetricsRequest.labels:type_name -> fluvio_grpc.GetMetricsRequest.LabelsEntry
-	54, // 19: fluvio_grpc.Metric.labels:type_name -> fluvio_grpc.Metric.LabelsEntry
-	55, // 20: fluvio_grpc.Metric.timestamp:type_name -> google.protobuf.Timestamp
-	45, // 21: fluvio_grpc.GetMetricsReply.metrics:type_name -> fluvio_grpc.Metric
-	2,  // 22: fluvio_grpc.FluvioService.Produce:input_type -> fluvio_grpc.ProduceRequest
-	4,  // 23: fluvio_grpc.FluvioService.BatchProduce:input_type -> fluvio_grpc.BatchProduceRequest
-	6,  // 24: fluvio_grpc.FluvioService.Consume:input_type -> fluvio_grpc.ConsumeRequest
-	9,  // 25: fluvio_grpc.FluvioService.StreamConsume:input_type -> fluvio_grpc.StreamConsumeRequest
-	10, // 26: fluvio_grpc.FluvioService.CommitOffset:input_type -> fluvio_grpc.CommitOffsetRequest
-	12, // 27: fluvio_grpc.FluvioService.CreateTopic:input_type -> fluvio_grpc.CreateTopicRequest
-	14, // 28: fluvio_grpc.FluvioService.DeleteTopic:input_type -> fluvio_grpc.DeleteTopicRequest
-	16, // 29: fluvio_grpc.FluvioService.ListTopics:input_type -> fluvio_grpc.ListTopicsRequest
-	18, // 30: fluvio_grpc.FluvioService.DescribeTopic:input_type -> fluvio_grpc.DescribeTopicRequest
-	21, // 31: fluvio_grpc.FluvioService.ListConsumerGroups:input_type -> fluvio_grpc.ListConsumerGroupsRequest
-	24, // 32: fluvio_grpc.FluvioService.DescribeConsumerGroup:input_type -> fluvio_grpc.DescribeConsumerGroupRequest
-	29, // 33: fluvio_grpc.FluvioService.CreateSmartModule:input_type -> fluvio_grpc.CreateSmartModuleRequest
-	31, // 34: fluvio_grpc.FluvioService.DeleteSmartModule:input_type -> fluvio_grpc.DeleteSmartModuleRequest
-	33, // 35: fluvio_grpc.FluvioService.ListSmartModules:input_type -> fluvio_grpc.ListSmartModulesRequest
-	35, // 36: fluvio_grpc.FluvioService.DescribeSmartModule:input_type -> fluvio_grpc.DescribeSmartModuleRequest
-	37, // 37: fluvio_grpc.FluvioService.UpdateSmartModule:input_type -> fluvio_grpc.UpdateSmartModuleRequest
-	47, // 38: fluvio_grpc.FluvioService.HealthCheck:input_type -> fluvio_grpc.HealthCheckRequest
-	39, // 39: fluvio_grpc.FluvioAdminService.DescribeCluster:input_type -> fluvio_grpc.DescribeClusterRequest
-	41, // 40: fluvio_grpc.FluvioAdminService.ListBrokers:input_type -> fluvio_grpc.ListBrokersRequest
-	44, // 41: fluvio_grpc.FluvioAdminService.GetMetrics:input_type -> fluvio_grpc.GetMetricsRequest
-	3,  // 42: fluvio_grpc.FluvioService.Produce:output_type -> fluvio_grpc.ProduceReply
-	5,  // 43: fluvio_grpc.FluvioService.BatchProduce:output_type -> fluvio_grpc.BatchProduceReply
-	8,  // 44: fluvio_grpc.FluvioService.Consume:output_type -> fluvio_grpc.ConsumeReply
-	7,  // 45: fluvio_grpc.FluvioService.StreamConsume:output_type -> fluvio_grpc.ConsumedMessage
-	11, // 46: fluvio_grpc.FluvioService.CommitOffset:output_type -> fluvio_grpc.CommitOffsetReply
-	13, // 47: fluvio_grpc.FluvioService.CreateTopic:output_type -> fluvio_grpc.CreateTopicReply
-	15, // 48: fluvio_grpc.FluvioService.DeleteTopic:output_type -> fluvio_grpc.DeleteTopicReply
-	17, // 49: fluvio_grpc.FluvioService.ListTopics:output_type -> fluvio_grpc.ListTopicsReply
-	20, // 50: fluvio_grpc.FluvioService.DescribeTopic:output_type -> fluvio_grpc.DescribeTopicReply
-	23, // 51: fluvio_grpc.FluvioService.ListConsumerGroups:output_type -> fluvio_grpc.ListConsumerGroupsReply
-	26, // 52: fluvio_grpc.FluvioService.DescribeConsumerGroup:output_type -> fluvio_grpc.DescribeConsumerGroupReply
-	30, // 53: fluvio_grpc.FluvioService.CreateSmartModule:output_type -> fluvio_grpc.CreateSmartModuleReply
-	32, // 54: fluvio_grpc.FluvioService.DeleteSmartModule:output_type -> fluvio_grpc.DeleteSmartModuleReply
-	34, // 55: fluvio_grpc.FluvioService.ListSmartModules:output_type -> fluvio_grpc.ListSmartModulesReply
-	36, // 56: fluvio_grpc.FluvioService.DescribeSmartModule:output_type -> fluvio_grpc.DescribeSmartModuleReply
-	38, // 57: fluvio_grpc.FluvioService.UpdateSmartModule:output_type -> fluvio_grpc.UpdateSmartModuleReply
-	48, // 58: fluvio_grpc.FluvioService.HealthCheck:output_type -> fluvio_grpc.HealthCheckReply
-	40, // 59: fluvio_grpc.FluvioAdminService.DescribeCluster:output_type -> fluvio_grpc.DescribeClusterReply
-	43, // 60: fluvio_grpc.FluvioAdminService.ListBrokers:output_type -> fluvio_grpc.ListBrokersReply
-	46, // 61: fluvio_grpc.FluvioAdminService.GetMetrics:output_type -> fluvio_grpc.GetMetricsReply
-	42, // [42:62] is the sub-list for method output_type
-	22, // [22:42] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	29, // 12: fluvio_grpc.SmartModuleSpec.parameters:type_name -> fluvio_grpc.SmartModuleParameter
+	30, // 13: fluvio_grpc.CreateSmartModuleRequest.spec:type_name -> fluvio_grpc.SmartModuleSpec
+	30, // 14: fluvio_grpc.ListSmartModulesReply.modules:type_name -> fluvio_grpc.SmartModuleSpec
+	30, // 15: fluvio_grpc.DescribeSmartModuleReply.spec:type_name -> fluvio_grpc.SmartModuleSpec
+	30, // 16: fluvio_grpc.UpdateSmartModuleRequest.spec:type_name -> fluvio_grpc.SmartModuleSpec
+	44, // 17: fluvio_grpc.ListBrokersReply.brokers:type_name -> fluvio_grpc.BrokerInfo
+	78, // 18: fluvio_grpc.GetMetricsRequest.labels:type_name -> fluvio_grpc.GetMetricsRequest.LabelsEntry
+	79, // 19: fluvio_grpc.Metric.labels:type_name -> fluvio_grpc.Metric.LabelsEntry
+	80, // 20: fluvio_grpc.Metric.timestamp:type_name -> google.protobuf.Timestamp
+	47, // 21: fluvio_grpc.GetMetricsReply.metrics:type_name -> fluvio_grpc.Metric
+	2,  // 22: fluvio_grpc.ComponentHealth.status:type_name -> fluvio_grpc.HealthStatus
+	2,  // 23: fluvio_grpc.HealthCheckReply.status:type_name -> fluvio_grpc.HealthStatus
+	80, // 24: fluvio_grpc.HealthCheckReply.timestamp:type_name -> google.protobuf.Timestamp
+	50, // 25: fluvio_grpc.HealthCheckReply.components:type_name -> fluvio_grpc.ComponentHealth
+	3,  // 26: fluvio_grpc.FilterCondition.type:type_name -> fluvio_grpc.FilterType
+	52, // 27: fluvio_grpc.FilteredConsumeRequest.filters:type_name -> fluvio_grpc.FilterCondition
+	9,  // 28: fluvio_grpc.FilteredConsumeReply.messages:type_name -> fluvio_grpc.ConsumedMessage
+	56, // 29: fluvio_grpc.BulkDeleteReply.results:type_name -> fluvio_grpc.BulkDeleteResult
+	80, // 30: fluvio_grpc.PartitionStats.last_updated:type_name -> google.protobuf.Timestamp
+	59, // 31: fluvio_grpc.TopicStats.partitions:type_name -> fluvio_grpc.PartitionStats
+	80, // 32: fluvio_grpc.TopicStats.created_at:type_name -> google.protobuf.Timestamp
+	80, // 33: fluvio_grpc.TopicStats.last_updated:type_name -> google.protobuf.Timestamp
+	60, // 34: fluvio_grpc.GetTopicStatsReply.topics:type_name -> fluvio_grpc.TopicStats
+	80, // 35: fluvio_grpc.GetTopicStatsReply.collected_at:type_name -> google.protobuf.Timestamp
+	63, // 36: fluvio_grpc.StorageStats.connection_stats:type_name -> fluvio_grpc.StorageConnectionStats
+	64, // 37: fluvio_grpc.StorageStats.database_info:type_name -> fluvio_grpc.StorageDatabaseInfo
+	65, // 38: fluvio_grpc.GetStorageStatusReply.storage_stats:type_name -> fluvio_grpc.StorageStats
+	80, // 39: fluvio_grpc.GetStorageStatusReply.checked_at:type_name -> google.protobuf.Timestamp
+	68, // 40: fluvio_grpc.MigrateStorageReply.migration_stats:type_name -> fluvio_grpc.MigrationStatsProto
+	80, // 41: fluvio_grpc.MigrateStorageReply.completed_at:type_name -> google.protobuf.Timestamp
+	80, // 42: fluvio_grpc.StorageMetricsProto.last_updated:type_name -> google.protobuf.Timestamp
+	80, // 43: fluvio_grpc.StorageHealthCheckResult.checked_at:type_name -> google.protobuf.Timestamp
+	71, // 44: fluvio_grpc.GetStorageMetricsReply.current_metrics:type_name -> fluvio_grpc.StorageMetricsProto
+	71, // 45: fluvio_grpc.GetStorageMetricsReply.metrics_history:type_name -> fluvio_grpc.StorageMetricsProto
+	72, // 46: fluvio_grpc.GetStorageMetricsReply.health_status:type_name -> fluvio_grpc.StorageHealthCheckResult
+	80, // 47: fluvio_grpc.GetStorageMetricsReply.collected_at:type_name -> google.protobuf.Timestamp
+	4,  // 48: fluvio_grpc.FluvioService.Produce:input_type -> fluvio_grpc.ProduceRequest
+	6,  // 49: fluvio_grpc.FluvioService.BatchProduce:input_type -> fluvio_grpc.BatchProduceRequest
+	8,  // 50: fluvio_grpc.FluvioService.Consume:input_type -> fluvio_grpc.ConsumeRequest
+	11, // 51: fluvio_grpc.FluvioService.StreamConsume:input_type -> fluvio_grpc.StreamConsumeRequest
+	12, // 52: fluvio_grpc.FluvioService.CommitOffset:input_type -> fluvio_grpc.CommitOffsetRequest
+	14, // 53: fluvio_grpc.FluvioService.CreateTopic:input_type -> fluvio_grpc.CreateTopicRequest
+	16, // 54: fluvio_grpc.FluvioService.DeleteTopic:input_type -> fluvio_grpc.DeleteTopicRequest
+	18, // 55: fluvio_grpc.FluvioService.ListTopics:input_type -> fluvio_grpc.ListTopicsRequest
+	20, // 56: fluvio_grpc.FluvioService.DescribeTopic:input_type -> fluvio_grpc.DescribeTopicRequest
+	23, // 57: fluvio_grpc.FluvioService.ListConsumerGroups:input_type -> fluvio_grpc.ListConsumerGroupsRequest
+	26, // 58: fluvio_grpc.FluvioService.DescribeConsumerGroup:input_type -> fluvio_grpc.DescribeConsumerGroupRequest
+	31, // 59: fluvio_grpc.FluvioService.CreateSmartModule:input_type -> fluvio_grpc.CreateSmartModuleRequest
+	33, // 60: fluvio_grpc.FluvioService.DeleteSmartModule:input_type -> fluvio_grpc.DeleteSmartModuleRequest
+	35, // 61: fluvio_grpc.FluvioService.ListSmartModules:input_type -> fluvio_grpc.ListSmartModulesRequest
+	37, // 62: fluvio_grpc.FluvioService.DescribeSmartModule:input_type -> fluvio_grpc.DescribeSmartModuleRequest
+	39, // 63: fluvio_grpc.FluvioService.UpdateSmartModule:input_type -> fluvio_grpc.UpdateSmartModuleRequest
+	53, // 64: fluvio_grpc.FluvioService.FilteredConsume:input_type -> fluvio_grpc.FilteredConsumeRequest
+	55, // 65: fluvio_grpc.FluvioService.BulkDelete:input_type -> fluvio_grpc.BulkDeleteRequest
+	58, // 66: fluvio_grpc.FluvioService.GetTopicStats:input_type -> fluvio_grpc.GetTopicStatsRequest
+	62, // 67: fluvio_grpc.FluvioService.GetStorageStatus:input_type -> fluvio_grpc.GetStorageStatusRequest
+	67, // 68: fluvio_grpc.FluvioService.MigrateStorage:input_type -> fluvio_grpc.MigrateStorageRequest
+	70, // 69: fluvio_grpc.FluvioService.GetStorageMetrics:input_type -> fluvio_grpc.GetStorageMetricsRequest
+	49, // 70: fluvio_grpc.FluvioService.HealthCheck:input_type -> fluvio_grpc.HealthCheckRequest
+	41, // 71: fluvio_grpc.FluvioAdminService.DescribeCluster:input_type -> fluvio_grpc.DescribeClusterRequest
+	43, // 72: fluvio_grpc.FluvioAdminService.ListBrokers:input_type -> fluvio_grpc.ListBrokersRequest
+	46, // 73: fluvio_grpc.FluvioAdminService.GetMetrics:input_type -> fluvio_grpc.GetMetricsRequest
+	5,  // 74: fluvio_grpc.FluvioService.Produce:output_type -> fluvio_grpc.ProduceReply
+	7,  // 75: fluvio_grpc.FluvioService.BatchProduce:output_type -> fluvio_grpc.BatchProduceReply
+	10, // 76: fluvio_grpc.FluvioService.Consume:output_type -> fluvio_grpc.ConsumeReply
+	9,  // 77: fluvio_grpc.FluvioService.StreamConsume:output_type -> fluvio_grpc.ConsumedMessage
+	13, // 78: fluvio_grpc.FluvioService.CommitOffset:output_type -> fluvio_grpc.CommitOffsetReply
+	15, // 79: fluvio_grpc.FluvioService.CreateTopic:output_type -> fluvio_grpc.CreateTopicReply
+	17, // 80: fluvio_grpc.FluvioService.DeleteTopic:output_type -> fluvio_grpc.DeleteTopicReply
+	19, // 81: fluvio_grpc.FluvioService.ListTopics:output_type -> fluvio_grpc.ListTopicsReply
+	22, // 82: fluvio_grpc.FluvioService.DescribeTopic:output_type -> fluvio_grpc.DescribeTopicReply
+	25, // 83: fluvio_grpc.FluvioService.ListConsumerGroups:output_type -> fluvio_grpc.ListConsumerGroupsReply
+	28, // 84: fluvio_grpc.FluvioService.DescribeConsumerGroup:output_type -> fluvio_grpc.DescribeConsumerGroupReply
+	32, // 85: fluvio_grpc.FluvioService.CreateSmartModule:output_type -> fluvio_grpc.CreateSmartModuleReply
+	34, // 86: fluvio_grpc.FluvioService.DeleteSmartModule:output_type -> fluvio_grpc.DeleteSmartModuleReply
+	36, // 87: fluvio_grpc.FluvioService.ListSmartModules:output_type -> fluvio_grpc.ListSmartModulesReply
+	38, // 88: fluvio_grpc.FluvioService.DescribeSmartModule:output_type -> fluvio_grpc.DescribeSmartModuleReply
+	40, // 89: fluvio_grpc.FluvioService.UpdateSmartModule:output_type -> fluvio_grpc.UpdateSmartModuleReply
+	54, // 90: fluvio_grpc.FluvioService.FilteredConsume:output_type -> fluvio_grpc.FilteredConsumeReply
+	57, // 91: fluvio_grpc.FluvioService.BulkDelete:output_type -> fluvio_grpc.BulkDeleteReply
+	61, // 92: fluvio_grpc.FluvioService.GetTopicStats:output_type -> fluvio_grpc.GetTopicStatsReply
+	66, // 93: fluvio_grpc.FluvioService.GetStorageStatus:output_type -> fluvio_grpc.GetStorageStatusReply
+	69, // 94: fluvio_grpc.FluvioService.MigrateStorage:output_type -> fluvio_grpc.MigrateStorageReply
+	73, // 95: fluvio_grpc.FluvioService.GetStorageMetrics:output_type -> fluvio_grpc.GetStorageMetricsReply
+	51, // 96: fluvio_grpc.FluvioService.HealthCheck:output_type -> fluvio_grpc.HealthCheckReply
+	42, // 97: fluvio_grpc.FluvioAdminService.DescribeCluster:output_type -> fluvio_grpc.DescribeClusterReply
+	45, // 98: fluvio_grpc.FluvioAdminService.ListBrokers:output_type -> fluvio_grpc.ListBrokersReply
+	48, // 99: fluvio_grpc.FluvioAdminService.GetMetrics:output_type -> fluvio_grpc.GetMetricsReply
+	74, // [74:100] is the sub-list for method output_type
+	48, // [48:74] is the sub-list for method input_type
+	48, // [48:48] is the sub-list for extension type_name
+	48, // [48:48] is the sub-list for extension extendee
+	0,  // [0:48] is the sub-list for field type_name
 }
 
 func init() { file_proto_fluvio_grpc_proto_init() }
@@ -3184,8 +5252,8 @@ func file_proto_fluvio_grpc_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_fluvio_grpc_proto_rawDesc), len(file_proto_fluvio_grpc_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   53,
+			NumEnums:      4,
+			NumMessages:   76,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

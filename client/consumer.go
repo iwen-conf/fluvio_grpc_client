@@ -80,6 +80,7 @@ func (c *Consumer) Consume(ctx context.Context, opts types.ConsumeOptions) ([]*t
 				Headers:   msg.GetHeaders(),
 				Offset:    msg.GetOffset(),
 				Partition: msg.GetPartition(),
+				MessageID: msg.GetMessageId(),
 			}
 
 			if msg.GetTimestamp() > 0 {
@@ -123,10 +124,12 @@ func (c *Consumer) ConsumeStream(ctx context.Context, opts types.StreamConsumeOp
 	}
 
 	req := &pb.StreamConsumeRequest{
-		Topic:     opts.Topic,
-		Group:     opts.Group,
-		Offset:    opts.Offset,
-		Partition: opts.Partition,
+		Topic:        opts.Topic,
+		Group:        opts.Group,
+		Offset:       opts.Offset,
+		Partition:    opts.Partition,
+		MaxBatchSize: opts.MaxBatchSize,
+		MaxWaitMs:    opts.MaxWaitMs,
 	}
 
 	c.client.logger.Debug("开始流式消费",
@@ -172,6 +175,7 @@ func (c *Consumer) ConsumeStream(ctx context.Context, opts types.StreamConsumeOp
 					Headers:   resp.GetHeaders(),
 					Offset:    resp.GetOffset(),
 					Partition: resp.GetPartition(),
+					MessageID: resp.GetMessageId(),
 				}
 
 				if resp.GetTimestamp() > 0 {
@@ -637,4 +641,112 @@ type ConsumerStats struct {
 	PendingCommits int             `json:"pending_commits"`
 	Metrics        ConsumerMetrics `json:"metrics"`
 	Closed         bool            `json:"closed"`
+}
+
+// ConsumeFiltered 过滤消费消息
+func (c *Consumer) ConsumeFiltered(ctx context.Context, opts types.FilteredConsumeOptions) (*types.FilteredConsumeResult, error) {
+	if c.client.isClosed() {
+		return nil, errors.New(errors.ErrConnection, "客户端已关闭")
+	}
+
+	if opts.Topic == "" {
+		return nil, errors.New(errors.ErrInvalidArgument, "主题名称不能为空")
+	}
+
+	if opts.Group == "" {
+		opts.Group = "default"
+	}
+
+	if opts.MaxMessages <= 0 {
+		opts.MaxMessages = 10
+	}
+
+	// 构建过滤条件
+	var filters []*pb.FilterCondition
+	for _, filter := range opts.Filters {
+		pbFilter := &pb.FilterCondition{
+			Type:     pb.FilterType(filter.Type),
+			Field:    filter.Field,
+			Operator: filter.Operator,
+			Value:    filter.Value,
+		}
+		filters = append(filters, pbFilter)
+	}
+
+	req := &pb.FilteredConsumeRequest{
+		Topic:       opts.Topic,
+		Group:       opts.Group,
+		Offset:      opts.Offset,
+		Partition:   opts.Partition,
+		MaxMessages: opts.MaxMessages,
+		Filters:     filters,
+		AndLogic:    opts.AndLogic,
+	}
+
+	c.client.logger.Debug("过滤消费消息",
+		logger.Field{Key: "topic", Value: opts.Topic},
+		logger.Field{Key: "group", Value: opts.Group},
+		logger.Field{Key: "filters_count", Value: len(opts.Filters)},
+		logger.Field{Key: "and_logic", Value: opts.AndLogic})
+
+	var result *types.FilteredConsumeResult
+	err := c.client.withConnection(ctx, func(conn *grpc.ClientConn) error {
+		client := pb.NewFluvioServiceClient(conn)
+
+		resp, err := client.FilteredConsume(ctx, req)
+		if err != nil {
+			return errors.Wrap(errors.ErrInternal, "过滤消费消息失败", err)
+		}
+
+		if resp.GetError() != "" {
+			return errors.New(errors.ErrInternal, resp.GetError())
+		}
+
+		// 转换消息
+		var messages []*types.Message
+		for _, msg := range resp.GetMessages() {
+			message := &types.Message{
+				Topic:     opts.Topic,
+				Key:       msg.GetKey(),
+				Value:     msg.GetMessage(),
+				Headers:   msg.GetHeaders(),
+				Offset:    msg.GetOffset(),
+				Partition: msg.GetPartition(),
+				MessageID: msg.GetMessageId(),
+			}
+
+			if msg.GetTimestamp() > 0 {
+				message.Timestamp = time.Unix(msg.GetTimestamp(), 0)
+			}
+
+			messages = append(messages, message)
+		}
+
+		result = &types.FilteredConsumeResult{
+			Messages:      messages,
+			NextOffset:    resp.GetNextOffset(),
+			TotalScanned:  resp.GetTotalScanned(),
+			FilteredCount: resp.GetFilteredCount(),
+			Success:       resp.GetError() == "",
+			Error:         resp.GetError(),
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		c.client.logger.Error("过滤消费消息失败",
+			logger.Field{Key: "topic", Value: opts.Topic},
+			logger.Field{Key: "group", Value: opts.Group},
+			logger.Field{Key: "error", Value: err})
+		return nil, err
+	}
+
+	c.client.logger.Info("过滤消费成功",
+		logger.Field{Key: "topic", Value: opts.Topic},
+		logger.Field{Key: "group", Value: opts.Group},
+		logger.Field{Key: "filtered_count", Value: result.FilteredCount},
+		logger.Field{Key: "total_scanned", Value: result.TotalScanned})
+
+	return result, nil
 }
