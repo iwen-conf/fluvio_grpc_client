@@ -1,4 +1,5 @@
 // Package fluvio provides a Go SDK for interacting with Fluvio streaming platform
+// This is the backward compatible API layer
 package fluvio
 
 import (
@@ -6,15 +7,15 @@ import (
 	"time"
 
 	"github.com/iwen-conf/fluvio_grpc_client/client"
-	"github.com/iwen-conf/fluvio_grpc_client/config"
-	"github.com/iwen-conf/fluvio_grpc_client/logger"
+	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/config"
+	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/logging"
 	"github.com/iwen-conf/fluvio_grpc_client/types"
 )
 
-// Client 是Fluvio SDK的主要客户端接口
+// Client 是Fluvio SDK的主要客户端接口（向后兼容）
 type Client = client.Client
 
-// 重新导出主要类型
+// 重新导出主要类型（向后兼容）
 type (
 	// 消息相关类型
 	Message              = types.Message
@@ -58,106 +59,133 @@ type (
 	ListSmartModulesResult      = types.ListSmartModulesResult
 	DescribeSmartModuleResult   = types.DescribeSmartModuleResult
 
-	// 配置相关类型
-	Config           = config.Config
-	ServerConfig     = config.ServerConfig
-	ConnectionConfig = config.ConnectionConfig
-	LoggingConfig    = config.LoggingConfig
-	RetryConfig      = config.RetryConfig
-	Option           = config.Option
+	// 配置相关类型（简化）
+	Config        = config.Config
+	LoggingConfig = config.LoggingConfig
 
 	// 日志相关类型
-	Logger = logger.Logger
-	Level  = logger.Level
-	Field  = logger.Field
-)
-
-// 重新导出配置选项函数
-var (
-	WithServer         = config.WithServer
-	WithTimeout        = config.WithTimeout
-	WithConnectTimeout = config.WithConnectTimeout
-	WithCallTimeout    = config.WithCallTimeout
-	WithLogger         = config.WithLogger
-	WithLogLevel       = config.WithLogLevel
-	WithRetry          = config.WithRetry
-	WithMaxRetries     = config.WithMaxRetries
-	WithConnectionPool = config.WithConnectionPool
-	WithPoolSize       = config.WithPoolSize
-	WithTLS            = config.WithTLS
-	WithInsecureTLS    = config.WithInsecureTLS
-	WithKeepAlive      = config.WithKeepAlive
-	WithBackoff        = config.WithBackoff
+	Logger = logging.Logger
+	Level  = logging.Level
+	Field  = logging.Field
 )
 
 // 重新导出日志级别常量
 const (
-	LevelDebug = logger.LevelDebug
-	LevelInfo  = logger.LevelInfo
-	LevelWarn  = logger.LevelWarn
-	LevelError = logger.LevelError
+	LevelDebug = logging.LevelDebug
+	LevelInfo  = logging.LevelInfo
+	LevelWarn  = logging.LevelWarn
+	LevelError = logging.LevelError
+	LevelFatal = logging.LevelFatal
 )
 
-// New 创建一个新的Fluvio客户端
-// 这是创建客户端的推荐方式
-func New(opts ...Option) (*Client, error) {
+// ClientOption 客户端选项函数类型（向后兼容）
+type ClientOption = client.ClientOption
+
+// New 创建一个新的Fluvio客户端（向后兼容）
+func New(opts ...ClientOption) (*Client, error) {
 	return client.New(opts...)
 }
 
-// NewWithConfig 使用指定配置创建客户端
+// NewWithConfig 使用指定配置创建客户端（向后兼容）
 func NewWithConfig(cfg *Config) (*Client, error) {
 	return client.NewWithConfig(cfg)
 }
 
-// Connect 连接到Fluvio服务器
-// 这是一个便捷函数，等同于New()
-func Connect(opts ...Option) (*Client, error) {
+// Connect 连接到Fluvio服务器（向后兼容）
+func Connect(opts ...ClientOption) (*Client, error) {
 	return New(opts...)
 }
 
-// ConnectWithAddress 连接到指定地址的Fluvio服务器
-func ConnectWithAddress(host string, port int, opts ...Option) (*Client, error) {
-	allOpts := append([]Option{WithServer(host, port)}, opts...)
+// ConnectWithAddress 连接到指定地址的Fluvio服务器（向后兼容）
+func ConnectWithAddress(host string, port int, opts ...ClientOption) (*Client, error) {
+	serverOpt := func(cfg *config.Config) error {
+		cfg.Connection.Host = host
+		cfg.Connection.Port = port
+		return nil
+	}
+	allOpts := append([]ClientOption{serverOpt}, opts...)
 	return New(allOpts...)
 }
 
-// DefaultConfig 返回默认配置
+// DefaultConfig 返回默认配置（向后兼容）
 func DefaultConfig() *Config {
-	return config.DefaultConfig()
+	return config.NewDefaultConfig()
 }
 
-// LoadConfigFromFile 从文件加载配置
-func LoadConfigFromFile(path string) (*Config, error) {
-	return config.LoadFromFile(path)
-}
-
-// LoadConfigFromEnv 从环境变量加载配置
-func LoadConfigFromEnv() *Config {
-	return config.LoadFromEnv()
-}
-
-// NewLogger 创建新的日志器
+// NewLogger 创建新的日志器（向后兼容）
 func NewLogger(level Level) Logger {
-	return logger.NewDefaultLogger(level)
+	logger := logging.NewDefaultLogger()
+	logger.SetLevel(level)
+	return logger
 }
 
-// NewNoopLogger 创建空日志器
+// NewNoopLogger 创建空日志器（向后兼容）
 func NewNoopLogger() Logger {
-	return logger.NewNoopLogger()
+	return logging.NewDefaultLogger() // 简化实现
 }
 
-// SetDefaultLogger 设置默认日志器
-func SetDefaultLogger(log Logger) {
-	logger.SetDefault(log)
+// 配置选项函数（向后兼容）
+
+// WithServer 设置服务器地址
+func WithServer(host string, port int) ClientOption {
+	return func(cfg *config.Config) error {
+		cfg.Connection.Host = host
+		cfg.Connection.Port = port
+		return nil
+	}
 }
 
-// GetDefaultLogger 获取默认日志器
-func GetDefaultLogger() Logger {
-	return logger.GetDefault()
+// WithTimeout 设置超时时间
+func WithTimeout(connect, call time.Duration) ClientOption {
+	return func(cfg *config.Config) error {
+		cfg.Connection.WithTimeout(connect, call)
+		return nil
+	}
 }
+
+// WithLogLevel 设置日志级别
+func WithLogLevel(level Level) ClientOption {
+	return func(cfg *config.Config) error {
+		cfg.Logging.Level = level.String()
+		return nil
+	}
+}
+
+// WithMaxRetries 设置最大重试次数
+func WithMaxRetries(maxRetries int) ClientOption {
+	return func(cfg *config.Config) error {
+		cfg.Connection.WithRetry(maxRetries, 1*time.Second)
+		return nil
+	}
+}
+
+// WithPoolSize 设置连接池大小
+func WithPoolSize(size int) ClientOption {
+	return func(cfg *config.Config) error {
+		cfg.Connection.WithPool(size, 5*time.Minute)
+		return nil
+	}
+}
+
+// WithTLS 启用TLS
+func WithTLS(certFile, keyFile, caFile string) ClientOption {
+	return func(cfg *config.Config) error {
+		cfg.Connection.WithTLS(certFile, keyFile, caFile)
+		return nil
+	}
+}
+
+// WithKeepAlive 设置保活时间
+func WithKeepAlive(interval time.Duration) ClientOption {
+	return func(cfg *config.Config) error {
+		cfg.Connection.KeepAliveTime = interval
+		return nil
+	}
+}
+
+// 便捷函数（向后兼容）
 
 // QuickStart 快速开始示例
-// 这个函数展示了如何快速连接和使用Fluvio
 func QuickStart(host string, port int) (*Client, error) {
 	return ConnectWithAddress(host, port,
 		WithTimeout(5*time.Second, 10*time.Second),
@@ -224,7 +252,7 @@ func Ping(ctx context.Context, host string, port int) (time.Duration, error) {
 
 // Version 返回SDK版本信息
 func Version() string {
-	return "1.0.0"
+	return "1.0.0-compat"
 }
 
 // UserAgent 返回用户代理字符串

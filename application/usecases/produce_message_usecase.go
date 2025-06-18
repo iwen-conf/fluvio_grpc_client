@@ -2,8 +2,7 @@ package usecases
 
 import (
 	"context"
-	"time"
-	
+
 	"github.com/iwen-conf/fluvio_grpc_client/application/dtos"
 	"github.com/iwen-conf/fluvio_grpc_client/domain/entities"
 	"github.com/iwen-conf/fluvio_grpc_client/domain/repositories"
@@ -32,15 +31,15 @@ func (uc *ProduceMessageUseCase) Execute(ctx context.Context, req *dtos.ProduceM
 	// 创建消息实体
 	message := entities.NewMessage(req.Key, req.Value)
 	message.Topic = req.Topic
-	
+
 	if req.MessageID != "" {
 		message.WithMessageID(req.MessageID)
 	}
-	
+
 	if req.Headers != nil {
 		message.WithHeaders(req.Headers)
 	}
-	
+
 	// 验证消息
 	if err := uc.messageService.ValidateMessage(message); err != nil {
 		return &dtos.ProduceMessageResponse{
@@ -48,7 +47,7 @@ func (uc *ProduceMessageUseCase) Execute(ctx context.Context, req *dtos.ProduceM
 			Error:   err.Error(),
 		}, err
 	}
-	
+
 	// 生产消息
 	if err := uc.messageRepo.Produce(ctx, message); err != nil {
 		return &dtos.ProduceMessageResponse{
@@ -56,7 +55,7 @@ func (uc *ProduceMessageUseCase) Execute(ctx context.Context, req *dtos.ProduceM
 			Error:   err.Error(),
 		}, err
 	}
-	
+
 	return &dtos.ProduceMessageResponse{
 		MessageID: message.MessageID,
 		Topic:     message.Topic,
@@ -73,18 +72,18 @@ func (uc *ProduceMessageUseCase) ExecuteBatch(ctx context.Context, req *dtos.Pro
 	for i, msgReq := range req.Messages {
 		message := entities.NewMessage(msgReq.Key, msgReq.Value)
 		message.Topic = msgReq.Topic
-		
+
 		if msgReq.MessageID != "" {
 			message.WithMessageID(msgReq.MessageID)
 		}
-		
+
 		if msgReq.Headers != nil {
 			message.WithHeaders(msgReq.Headers)
 		}
-		
+
 		messages[i] = message
 	}
-	
+
 	// 验证批量消息
 	if err := uc.messageService.ValidateBatch(messages); err != nil {
 		return &dtos.ProduceBatchResponse{
@@ -99,7 +98,7 @@ func (uc *ProduceMessageUseCase) ExecuteBatch(ctx context.Context, req *dtos.Pro
 			},
 		}, err
 	}
-	
+
 	// 批量生产
 	if err := uc.messageRepo.ProduceBatch(ctx, messages); err != nil {
 		return &dtos.ProduceBatchResponse{
@@ -114,11 +113,11 @@ func (uc *ProduceMessageUseCase) ExecuteBatch(ctx context.Context, req *dtos.Pro
 			},
 		}, err
 	}
-	
+
 	// 构建响应
 	results := make([]*dtos.ProduceMessageResponse, len(messages))
 	successCount := 0
-	
+
 	for i, message := range messages {
 		results[i] = &dtos.ProduceMessageResponse{
 			MessageID: message.MessageID,
@@ -129,7 +128,7 @@ func (uc *ProduceMessageUseCase) ExecuteBatch(ctx context.Context, req *dtos.Pro
 		}
 		successCount++
 	}
-	
+
 	return &dtos.ProduceBatchResponse{
 		Results:       results,
 		TotalMessages: len(messages),

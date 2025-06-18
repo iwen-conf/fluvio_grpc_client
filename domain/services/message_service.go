@@ -1,9 +1,8 @@
 package services
 
 import (
-	"context"
 	"fmt"
-	
+
 	"github.com/iwen-conf/fluvio_grpc_client/domain/entities"
 	"github.com/iwen-conf/fluvio_grpc_client/domain/valueobjects"
 )
@@ -21,12 +20,12 @@ func (ms *MessageService) ValidateMessage(message *entities.Message) error {
 	if !message.IsValid() {
 		return fmt.Errorf("invalid message: value and topic are required")
 	}
-	
+
 	// 检查消息大小限制（例如：1MB）
 	if message.Size() > 1024*1024 {
 		return fmt.Errorf("message size exceeds limit: %d bytes", message.Size())
 	}
-	
+
 	return nil
 }
 
@@ -35,19 +34,19 @@ func (ms *MessageService) ValidateBatch(messages []*entities.Message) error {
 	if len(messages) == 0 {
 		return fmt.Errorf("batch cannot be empty")
 	}
-	
+
 	// 检查批量大小限制
 	if len(messages) > 1000 {
 		return fmt.Errorf("batch size exceeds limit: %d messages", len(messages))
 	}
-	
+
 	// 验证每条消息
 	for i, message := range messages {
 		if err := ms.ValidateMessage(message); err != nil {
 			return fmt.Errorf("message %d in batch is invalid: %w", i, err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -56,13 +55,13 @@ func (ms *MessageService) ApplyFilters(message *entities.Message, filters []*val
 	if len(filters) == 0 {
 		return true
 	}
-	
+
 	results := make([]bool, len(filters))
-	
+
 	for i, filter := range filters {
 		results[i] = ms.applyFilter(message, filter)
 	}
-	
+
 	// 应用逻辑运算
 	if andLogic {
 		// AND逻辑：所有条件都必须满足
@@ -86,7 +85,7 @@ func (ms *MessageService) ApplyFilters(message *entities.Message, filters []*val
 // applyFilter 应用单个过滤条件
 func (ms *MessageService) applyFilter(message *entities.Message, filter *valueobjects.FilterCondition) bool {
 	var targetValue string
-	
+
 	switch filter.Type {
 	case valueobjects.FilterTypeKey:
 		targetValue = message.Key
@@ -100,7 +99,7 @@ func (ms *MessageService) applyFilter(message *entities.Message, filter *valueob
 	default:
 		return false
 	}
-	
+
 	return ms.compareValues(targetValue, filter.Operator, filter.Value)
 }
 
@@ -112,13 +111,13 @@ func (ms *MessageService) compareValues(target string, operator valueobjects.Fil
 	case valueobjects.FilterOperatorNe:
 		return target != expected
 	case valueobjects.FilterOperatorContains:
-		return len(target) > 0 && len(expected) > 0 && 
-			   target != expected && 
-			   (target == expected || 
-			    (len(target) > len(expected) && 
-			     target[:len(expected)] == expected || 
-			     target[len(target)-len(expected):] == expected ||
-			     ms.contains(target, expected)))
+		return len(target) > 0 && len(expected) > 0 &&
+			target != expected &&
+			(target == expected ||
+				(len(target) > len(expected) &&
+					target[:len(expected)] == expected ||
+					target[len(target)-len(expected):] == expected ||
+					ms.contains(target, expected)))
 	default:
 		return false
 	}
