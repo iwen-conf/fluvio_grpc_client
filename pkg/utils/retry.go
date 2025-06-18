@@ -1,13 +1,12 @@
-package retry
+package utils
 
 import (
 	"context"
 	"math/rand/v2"
 	"time"
 
-	"github.com/iwen-conf/fluvio_grpc_client/config"
-	"github.com/iwen-conf/fluvio_grpc_client/errors"
-	"github.com/iwen-conf/fluvio_grpc_client/logger"
+	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/logging"
+	"github.com/iwen-conf/fluvio_grpc_client/pkg/errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,17 +18,42 @@ type RetryableFunc func() error
 // RetryableContextFunc 带上下文的可重试函数类型
 type RetryableContextFunc func(ctx context.Context) error
 
+// RetryConfig 重试配置
+type RetryConfig struct {
+	MaxRetries       int           `json:"max_retries"`
+	InitialBackoff   time.Duration `json:"initial_backoff"`
+	MaxBackoff       time.Duration `json:"max_backoff"`
+	BackoffMultiple  float64       `json:"backoff_multiple"`
+	EnableJitter     bool          `json:"enable_jitter"`
+	JitterFactor     float64       `json:"jitter_factor"`
+}
+
+// DefaultRetryConfig 默认重试配置
+func DefaultRetryConfig() *RetryConfig {
+	return &RetryConfig{
+		MaxRetries:      3,
+		InitialBackoff:  1 * time.Second,
+		MaxBackoff:      30 * time.Second,
+		BackoffMultiple: 2.0,
+		EnableJitter:    true,
+		JitterFactor:    0.1,
+	}
+}
+
 // Retryer 重试器
 type Retryer struct {
-	config *config.RetryConfig
-	logger logger.Logger
+	config *RetryConfig
+	logger logging.Logger
 }
 
 // NewRetryer 创建重试器
-func NewRetryer(cfg *config.RetryConfig, log logger.Logger) *Retryer {
+func NewRetryer(config *RetryConfig, logger logging.Logger) *Retryer {
+	if config == nil {
+		config = DefaultRetryConfig()
+	}
 	return &Retryer{
-		config: cfg,
-		logger: log,
+		config: config,
+		logger: logger,
 	}
 }
 
@@ -48,9 +72,9 @@ func (r *Retryer) RetryWithContext(ctx context.Context, fn RetryableContextFunc)
 	for attempt := 0; attempt <= r.config.MaxRetries; attempt++ {
 		if attempt > 0 {
 			r.logger.Debug("重试操作",
-				logger.Field{Key: "attempt", Value: attempt},
-				logger.Field{Key: "backoff", Value: backoff},
-				logger.Field{Key: "last_error", Value: lastErr})
+				logging.Field{Key: "attempt", Value: attempt},
+				logging.Field{Key: "backoff", Value: backoff},
+				logging.Field{Key: "last_error", Value: lastErr})
 
 			// 等待退避时间
 			select {
@@ -60,17 +84,14 @@ func (r *Retryer) RetryWithContext(ctx context.Context, fn RetryableContextFunc)
 			}
 
 			// 计算下次退避时间
-			backoff = time.Duration(float64(backoff) * r.config.BackoffMultiple)
-			if backoff > r.config.MaxBackoff {
-				backoff = r.config.MaxBackoff
-			}
+			backoff = r.calculateNextBackoff(backoff)
 		}
 
 		// 执行函数
 		err := fn(ctx)
 		if err == nil {
 			if attempt > 0 {
-				r.logger.Info("重试成功", logger.Field{Key: "attempts", Value: attempt + 1})
+				r.logger.Info("重试成功", logging.Field{Key: "attempts", Value: attempt + 1})
 			}
 			return nil
 		}
@@ -79,7 +100,7 @@ func (r *Retryer) RetryWithContext(ctx context.Context, fn RetryableContextFunc)
 
 		// 检查是否应该重试
 		if !r.shouldRetry(err) {
-			r.logger.Debug("错误不可重试", logger.Field{Key: "error", Value: err})
+			r.logger.Debug("错误不可重试", logging.Field{Key: "error", Value: err})
 			break
 		}
 
@@ -90,24 +111,38 @@ func (r *Retryer) RetryWithContext(ctx context.Context, fn RetryableContextFunc)
 	}
 
 	r.logger.Error("重试失败",
-		logger.Field{Key: "max_attempts", Value: r.config.MaxRetries + 1},
-		logger.Field{Key: "final_error", Value: lastErr})
+		logging.Field{Key: "max_attempts", Value: r.config.MaxRetries + 1},
+		logging.Field{Key: "final_error", Value: lastErr})
 
 	return lastErr
+}
+
+// calculateNextBackoff 计算下次退避时间
+func (r *Retryer) calculateNextBackoff(current time.Duration) time.Duration {
+	next := time.Duration(float64(current) * r.config.BackoffMultiple)
+	if next > r.config.MaxBackoff {
+		next = r.config.MaxBackoff
+	}
+
+	// 添加抖动
+	if r.config.EnableJitter && r.config.JitterFactor > 0 {
+		jitterAmount := float64(next) * r.config.JitterFactor
+		jitterTime := time.Duration(jitterAmount * (2*rand.Float64() - 1))
+		next += jitterTime
+
+		if next < 0 {
+			next = current / 2
+		}
+	}
+
+	return next
 }
 
 // shouldRetry 判断错误是否应该重试
 func (r *Retryer) shouldRetry(err error) bool {
 	// 检查SDK错误
-	if sdkErr, ok := err.(*errors.Error); ok {
-		switch sdkErr.Code {
-		case errors.ErrConnection, errors.ErrTimeout, errors.ErrServiceUnavailable, errors.ErrResourceExhausted:
-			return true
-		case errors.ErrInvalidArgument, errors.ErrPermissionDenied, errors.ErrTopicNotFound:
-			return false
-		default:
-			return true // 默认重试未知错误
-		}
+	if fluvioErr, ok := err.(*errors.FluvioError); ok {
+		return errors.IsRetryable(fluvioErr)
 	}
 
 	// 检查gRPC状态错误
@@ -124,6 +159,12 @@ func (r *Retryer) shouldRetry(err error) bool {
 
 	// 默认重试
 	return true
+}
+
+// BackoffStrategy 退避策略接口
+type BackoffStrategy interface {
+	Next() time.Duration
+	Reset()
 }
 
 // ExponentialBackoff 指数退避策略
@@ -228,4 +269,49 @@ func (jb *JitteredBackoff) Next() time.Duration {
 // Reset 重置退避时间
 func (jb *JitteredBackoff) Reset() {
 	jb.base.Reset()
+}
+
+// RetryWithBackoff 使用自定义退避策略重试
+func RetryWithBackoff(ctx context.Context, fn RetryableContextFunc, strategy BackoffStrategy, maxRetries int, logger logging.Logger) error {
+	var lastErr error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			backoff := strategy.Next()
+			
+			if logger != nil {
+				logger.Debug("重试操作",
+					logging.Field{Key: "attempt", Value: attempt},
+					logging.Field{Key: "backoff", Value: backoff})
+			}
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(backoff):
+			}
+		}
+
+		err := fn(ctx)
+		if err == nil {
+			if attempt > 0 && logger != nil {
+				logger.Info("重试成功", logging.Field{Key: "attempts", Value: attempt + 1})
+			}
+			return nil
+		}
+
+		lastErr = err
+
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+	}
+
+	if logger != nil {
+		logger.Error("重试失败",
+			logging.Field{Key: "max_attempts", Value: maxRetries + 1},
+			logging.Field{Key: "final_error", Value: lastErr})
+	}
+
+	return lastErr
 }

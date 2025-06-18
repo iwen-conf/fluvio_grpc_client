@@ -1,22 +1,22 @@
-package pool
+package grpc
 
 import (
 	"context"
 	"sync"
 
-	"github.com/iwen-conf/fluvio_grpc_client/config"
-	"github.com/iwen-conf/fluvio_grpc_client/errors"
-	grpcMgr "github.com/iwen-conf/fluvio_grpc_client/internal/grpc"
-	"github.com/iwen-conf/fluvio_grpc_client/logger"
+	"github.com/iwen-conf/fluvio_grpc_client/domain/valueobjects"
+	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/logging"
+	"github.com/iwen-conf/fluvio_grpc_client/pkg/errors"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 )
 
 // ConnectionPool 连接池
 type ConnectionPool struct {
-	config      *config.Config
-	logger      logger.Logger
-	connMgr     *grpcMgr.ConnectionManager
+	config      *valueobjects.ConnectionConfig
+	logger      logging.Logger
+	connMgr     *ConnectionManager
 	pool        chan *grpc.ClientConn
 	mu          sync.RWMutex
 	closed      bool
@@ -24,14 +24,14 @@ type ConnectionPool struct {
 }
 
 // NewConnectionPool 创建连接池
-func NewConnectionPool(cfg *config.Config, log logger.Logger) *ConnectionPool {
-	connMgr := grpcMgr.NewConnectionManager(cfg, log)
+func NewConnectionPool(config *valueobjects.ConnectionConfig, logger logging.Logger) *ConnectionPool {
+	connMgr := NewConnectionManager(config, logger)
 
 	return &ConnectionPool{
-		config:  cfg,
-		logger:  log,
+		config:  config,
+		logger:  logger,
 		connMgr: connMgr,
-		pool:    make(chan *grpc.ClientConn, cfg.Connection.PoolSize),
+		pool:    make(chan *grpc.ClientConn, config.PoolSize),
 	}
 }
 
@@ -96,9 +96,9 @@ func (p *ConnectionPool) Put(conn *grpc.ClientConn) {
 // createNewConnection 创建新连接
 func (p *ConnectionPool) createNewConnection(ctx context.Context) (*grpc.ClientConn, error) {
 	p.mu.Lock()
-	if p.activeConns >= p.config.Connection.PoolSize {
+	if p.activeConns >= p.config.PoolSize {
 		p.mu.Unlock()
-		return nil, errors.New(errors.ErrResourceExhausted, "连接池已满")
+		return nil, errors.New(errors.ErrResourceLimit, "连接池已满")
 	}
 	p.activeConns++
 	p.mu.Unlock()
@@ -119,7 +119,7 @@ func (p *ConnectionPool) isConnectionValid(conn *grpc.ClientConn) bool {
 	}
 
 	state := conn.GetState()
-	return state.String() == "READY" || state.String() == "IDLE"
+	return state == connectivity.Ready || state == connectivity.Idle
 }
 
 // decrementActiveConns 减少活跃连接数
@@ -164,7 +164,7 @@ func (p *ConnectionPool) GetStats() Stats {
 	defer p.mu.RUnlock()
 
 	return Stats{
-		PoolSize:    p.config.Connection.PoolSize,
+		PoolSize:    p.config.PoolSize,
 		ActiveConns: p.activeConns,
 		IdleConns:   len(p.pool),
 	}
@@ -211,9 +211,9 @@ type Factory struct {
 }
 
 // NewFactory 创建连接工厂
-func NewFactory(cfg *config.Config, log logger.Logger) *Factory {
+func NewFactory(config *valueobjects.ConnectionConfig, logger logging.Logger) *Factory {
 	return &Factory{
-		pool: NewConnectionPool(cfg, log),
+		pool: NewConnectionPool(config, logger),
 	}
 }
 

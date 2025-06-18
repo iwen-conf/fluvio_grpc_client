@@ -5,10 +5,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	"sync"
+	"time"
 
-	"github.com/iwen-conf/fluvio_grpc_client/config"
-	"github.com/iwen-conf/fluvio_grpc_client/errors"
-	"github.com/iwen-conf/fluvio_grpc_client/logger"
+	"github.com/iwen-conf/fluvio_grpc_client/domain/valueobjects"
+	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/logging"
+	"github.com/iwen-conf/fluvio_grpc_client/pkg/errors"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -17,26 +18,26 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-// ConnectionManager 连接管理器
+// ConnectionManager gRPC连接管理器
 type ConnectionManager struct {
-	config *config.Config
-	logger logger.Logger
+	config *valueobjects.ConnectionConfig
+	logger logging.Logger
 	mu     sync.RWMutex
 	conns  map[string]*grpc.ClientConn
 }
 
 // NewConnectionManager 创建连接管理器
-func NewConnectionManager(cfg *config.Config, log logger.Logger) *ConnectionManager {
+func NewConnectionManager(config *valueobjects.ConnectionConfig, logger logging.Logger) *ConnectionManager {
 	return &ConnectionManager{
-		config: cfg,
-		logger: log,
+		config: config,
+		logger: logger,
 		conns:  make(map[string]*grpc.ClientConn),
 	}
 }
 
 // GetConnection 获取连接
 func (cm *ConnectionManager) GetConnection(ctx context.Context) (*grpc.ClientConn, error) {
-	serverAddr := fmt.Sprintf("%s:%d", cm.config.Server.Host, cm.config.Server.Port)
+	serverAddr := cm.config.Address()
 
 	cm.mu.RLock()
 	conn, exists := cm.conns[serverAddr]
@@ -72,18 +73,18 @@ func (cm *ConnectionManager) GetConnection(ctx context.Context) (*grpc.ClientCon
 
 // createConnection 创建新连接
 func (cm *ConnectionManager) createConnection(ctx context.Context, serverAddr string) (*grpc.ClientConn, error) {
-	cm.logger.Info("正在创建gRPC连接", logger.Field{Key: "address", Value: serverAddr})
+	cm.logger.Info("正在创建gRPC连接", logging.Field{Key: "address", Value: serverAddr})
 
 	opts := []grpc.DialOption{
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                cm.config.Connection.KeepAlive,
-			Timeout:             cm.config.Connection.CallTimeout,
+			Time:                cm.config.KeepAliveTime,
+			Timeout:             cm.config.KeepAliveTimeout,
 			PermitWithoutStream: true,
 		}),
 	}
 
 	// 配置TLS
-	if cm.config.Server.TLS.Enabled {
+	if cm.config.TLSEnabled {
 		creds, err := cm.createTLSCredentials()
 		if err != nil {
 			return nil, errors.Wrap(errors.ErrConnection, "创建TLS凭据失败", err)
@@ -100,7 +101,7 @@ func (cm *ConnectionManager) createConnection(ctx context.Context, serverAddr st
 	}
 
 	// 等待连接就绪
-	connectCtx, cancel := context.WithTimeout(ctx, cm.config.Connection.ConnectTimeout)
+	connectCtx, cancel := context.WithTimeout(ctx, cm.config.ConnectTimeout)
 	defer cancel()
 
 	if err := cm.waitForConnection(connectCtx, conn); err != nil {
@@ -108,18 +109,18 @@ func (cm *ConnectionManager) createConnection(ctx context.Context, serverAddr st
 		return nil, err
 	}
 
-	cm.logger.Info("gRPC连接创建成功", logger.Field{Key: "address", Value: serverAddr})
+	cm.logger.Info("gRPC连接创建成功", logging.Field{Key: "address", Value: serverAddr})
 	return conn, nil
 }
 
 // createTLSCredentials 创建TLS凭据
 func (cm *ConnectionManager) createTLSCredentials() (credentials.TransportCredentials, error) {
 	tlsConfig := &tls.Config{
-		InsecureSkipVerify: cm.config.Server.TLS.InsecureSkipVerify,
+		InsecureSkipVerify: false, // 默认安全
 	}
 
-	if cm.config.Server.TLS.CertFile != "" && cm.config.Server.TLS.KeyFile != "" {
-		cert, err := tls.LoadX509KeyPair(cm.config.Server.TLS.CertFile, cm.config.Server.TLS.KeyFile)
+	if cm.config.CertFile != "" && cm.config.KeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(cm.config.CertFile, cm.config.KeyFile)
 		if err != nil {
 			return nil, fmt.Errorf("加载客户端证书失败: %w", err)
 		}
@@ -166,8 +167,8 @@ func (cm *ConnectionManager) Close() error {
 	for addr, conn := range cm.conns {
 		if err := conn.Close(); err != nil {
 			cm.logger.Error("关闭连接失败",
-				logger.Field{Key: "address", Value: addr},
-				logger.Field{Key: "error", Value: err})
+				logging.Field{Key: "address", Value: addr},
+				logging.Field{Key: "error", Value: err})
 			lastErr = err
 		}
 	}
@@ -193,4 +194,22 @@ func (cm *ConnectionManager) GetConnectionStates() map[string]connectivity.State
 		states[addr] = conn.GetState()
 	}
 	return states
+}
+
+// Ping 测试连接
+func (cm *ConnectionManager) Ping(ctx context.Context) (time.Duration, error) {
+	start := time.Now()
+	
+	conn, err := cm.GetConnection(ctx)
+	if err != nil {
+		return 0, err
+	}
+	
+	// 简单的状态检查作为ping
+	state := conn.GetState()
+	if state != connectivity.Ready && state != connectivity.Idle {
+		return 0, errors.New(errors.ErrConnection, fmt.Sprintf("连接状态异常: %v", state))
+	}
+	
+	return time.Since(start), nil
 }
