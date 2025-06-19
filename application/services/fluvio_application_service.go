@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/iwen-conf/fluvio_grpc_client/application/dtos"
 	"github.com/iwen-conf/fluvio_grpc_client/domain/entities"
@@ -34,7 +35,13 @@ func NewFluvioApplicationService(
 
 // ProduceMessage 生产消息
 func (s *FluvioApplicationService) ProduceMessage(ctx context.Context, req *dtos.ProduceMessageRequest) (*dtos.ProduceMessageResponse, error) {
-	s.logger.Debug("Producing message", logging.Field{Key: "topic", Value: req.Topic})
+	// 基本验证
+	if req == nil {
+		return &dtos.ProduceMessageResponse{
+			Success: false,
+			Error:   "request cannot be nil",
+		}, fmt.Errorf("request cannot be nil")
+	}
 
 	// 创建消息实体
 	message := entities.NewMessage(req.Key, req.Value)
@@ -48,20 +55,13 @@ func (s *FluvioApplicationService) ProduceMessage(ctx context.Context, req *dtos
 		message.WithHeaders(req.Headers)
 	}
 
-	// 调用仓储层进行实际的消息生产
+	// 直接调用仓储层，让gRPC处理业务逻辑
 	if err := s.messageRepo.Produce(ctx, message); err != nil {
-		s.logger.Error("Failed to produce message",
-			logging.Field{Key: "error", Value: err},
-			logging.Field{Key: "topic", Value: req.Topic})
 		return &dtos.ProduceMessageResponse{
 			Success: false,
 			Error:   err.Error(),
 		}, err
 	}
-
-	s.logger.Info("Message produced successfully",
-		logging.Field{Key: "topic", Value: message.Topic},
-		logging.Field{Key: "message_id", Value: message.MessageID})
 
 	return &dtos.ProduceMessageResponse{
 		MessageID: message.MessageID,

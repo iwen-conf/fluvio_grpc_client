@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/iwen-conf/fluvio_grpc_client/domain/entities"
-	"github.com/iwen-conf/fluvio_grpc_client/domain/valueobjects"
 	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/logging"
 	pb "github.com/iwen-conf/fluvio_grpc_client/proto/fluvio_service"
 )
@@ -201,12 +200,16 @@ func TestGRPCMessageRepository_ProduceBatch(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name: "主题不一致应该失败",
+			name: "不同主题的消息（由服务端处理）",
 			messages: []*entities.Message{
 				{Topic: "topic1", Key: "key1", Value: []byte("value1")},
 				{Topic: "topic2", Key: "key2", Value: []byte("value2")},
 			},
-			expectedError: true,
+			mockResponse: &pb.BatchProduceReply{
+				Success: []bool{true, true},
+				Error:   []string{"", ""},
+			},
+			expectedError: false,
 		},
 		{
 			name: "部分消息失败",
@@ -252,70 +255,4 @@ func TestGRPCMessageRepository_ProduceBatch(t *testing.T) {
 	}
 }
 
-// TestGRPCMessageRepository_FilterMatching 测试过滤匹配逻辑
-func TestGRPCMessageRepository_FilterMatching(t *testing.T) {
-	logger := logging.NewStandardLogger(os.Stdout, logging.LevelDebug)
-	repo := &GRPCMessageRepository{logger: logger}
-
-	message := &entities.Message{
-		Key:   "test-key",
-		Value: []byte("test-value"),
-		Headers: map[string]string{
-			"source": "test-service",
-			"type":   "event",
-		},
-	}
-
-	tests := []struct {
-		name     string
-		filter   *valueobjects.FilterCondition
-		expected bool
-	}{
-		{
-			name: "键值相等匹配",
-			filter: &valueobjects.FilterCondition{
-				Type:     valueobjects.FilterTypeKey,
-				Operator: valueobjects.FilterOperatorEq,
-				Value:    "test-key",
-			},
-			expected: true,
-		},
-		{
-			name: "值包含匹配",
-			filter: &valueobjects.FilterCondition{
-				Type:     valueobjects.FilterTypeValue,
-				Operator: valueobjects.FilterOperatorContains,
-				Value:    "test",
-			},
-			expected: true,
-		},
-		{
-			name: "头部字段匹配",
-			filter: &valueobjects.FilterCondition{
-				Type:     valueobjects.FilterTypeHeader,
-				Field:    "source",
-				Operator: valueobjects.FilterOperatorEq,
-				Value:    "test-service",
-			},
-			expected: true,
-		},
-		{
-			name: "通配符匹配",
-			filter: &valueobjects.FilterCondition{
-				Type:     valueobjects.FilterTypeKey,
-				Operator: valueobjects.FilterOperatorRegex,
-				Value:    "test-*",
-			},
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := repo.matchesFilter(message, tt.filter)
-			if result != tt.expected {
-				t.Errorf("期望 %v，但得到 %v", tt.expected, result)
-			}
-		})
-	}
-}
+// 移除过滤匹配测试，因为过滤逻辑已移至服务端

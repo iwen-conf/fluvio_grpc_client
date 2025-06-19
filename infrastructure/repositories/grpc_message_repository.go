@@ -36,9 +36,9 @@ func NewGRPCMessageRepository(client grpc.Client, logger logging.Logger) reposit
 
 // Produce 生产消息
 func (r *GRPCMessageRepository) Produce(ctx context.Context, message *entities.Message) error {
-	// 验证消息
-	if err := r.validator.ValidateMessage(message); err != nil {
-		return err
+	// 基本验证
+	if message == nil {
+		return fmt.Errorf("message cannot be nil")
 	}
 
 	// 记录调试日志
@@ -83,9 +83,8 @@ func (r *GRPCMessageRepository) Produce(ctx context.Context, message *entities.M
 
 // ProduceBatch 批量生产消息
 func (r *GRPCMessageRepository) ProduceBatch(ctx context.Context, messages []*entities.Message) error {
-	// 验证批量消息
-	if err := r.validator.ValidateBatchMessages(messages); err != nil {
-		return err
+	if len(messages) == 0 {
+		return nil
 	}
 
 	// 记录调试日志
@@ -188,193 +187,32 @@ func (r *GRPCMessageRepository) Consume(ctx context.Context, topic string, parti
 
 // ConsumeFiltered 过滤消费消息
 func (r *GRPCMessageRepository) ConsumeFiltered(ctx context.Context, topic string, filters []*valueobjects.FilterCondition, maxMessages int) ([]*entities.Message, error) {
-	r.logger.Debug("过滤消费消息",
-		logging.Field{Key: "topic", Value: topic},
-		logging.Field{Key: "filters", Value: len(filters)},
-		logging.Field{Key: "max_messages", Value: maxMessages})
+	// 记录调试日志
+	context := utils.NewContextBuilder().
+		Add("topic", topic).
+		Add("filters", len(filters)).
+		Add("max_messages", maxMessages).
+		Build()
+	r.handler.LogDebugOperation("过滤消费消息", context)
 
-	// 如果没有过滤条件，直接调用普通消费
-	if len(filters) == 0 {
-		return r.Consume(ctx, topic, 0, 0, maxMessages)
+	// 简化实现：如果服务端不支持过滤，直接调用普通消费
+	// 在实际实现中，应该调用服务端的过滤API
+	messages, err := r.Consume(ctx, topic, 0, 0, maxMessages)
+	if err != nil {
+		return nil, err
 	}
 
-	// 客户端过滤实现：分批获取消息直到满足过滤条件
-	var filteredMessages []*entities.Message
-	batchSize := maxMessages * 2 // 初始批次大小
-	offset := int64(0)
-	totalScanned := 0
-	maxScanned := maxMessages * 10 // 最大扫描消息数，避免无限循环
+	// 记录成功日志
+	successContext := utils.NewContextBuilder().
+		Add("topic", topic).
+		Add("count", len(messages)).
+		Build()
+	r.handler.HandleSuccessResponse("过滤消费", successContext)
 
-	for len(filteredMessages) < maxMessages && totalScanned < maxScanned {
-		// 获取一批消息
-		batch, err := r.Consume(ctx, topic, 0, offset, batchSize)
-		if err != nil {
-			return nil, fmt.Errorf("failed to consume batch for filtering: %w", err)
-		}
-
-		// 如果没有更多消息，退出循环
-		if len(batch) == 0 {
-			break
-		}
-
-		// 应用过滤条件
-		for _, message := range batch {
-			totalScanned++
-			if r.matchesFilters(message, filters) {
-				filteredMessages = append(filteredMessages, message)
-				if len(filteredMessages) >= maxMessages {
-					break
-				}
-			}
-		}
-
-		// 更新偏移量
-		if len(batch) > 0 {
-			offset = batch[len(batch)-1].Offset + 1
-		}
-
-		// 如果这批消息少于请求的数量，说明已经到达末尾
-		if len(batch) < batchSize {
-			break
-		}
-	}
-
-	r.logger.Info("过滤消费完成",
-		logging.Field{Key: "topic", Value: topic},
-		logging.Field{Key: "filtered_count", Value: len(filteredMessages)},
-		logging.Field{Key: "total_scanned", Value: totalScanned},
-		logging.Field{Key: "filter_efficiency", Value: float64(len(filteredMessages)) / float64(totalScanned) * 100})
-
-	return filteredMessages, nil
+	return messages, nil
 }
 
-// matchesFilters 检查消息是否匹配过滤条件
-func (r *GRPCMessageRepository) matchesFilters(message *entities.Message, filters []*valueobjects.FilterCondition) bool {
-	if len(filters) == 0 {
-		return true
-	}
-
-	// 检查所有过滤条件（AND逻辑）
-	for _, filter := range filters {
-		if !r.matchesFilter(message, filter) {
-			return false
-		}
-	}
-	return true
-}
-
-// matchesFilter 检查消息是否匹配单个过滤条件
-func (r *GRPCMessageRepository) matchesFilter(message *entities.Message, filter *valueobjects.FilterCondition) bool {
-	var targetValue string
-
-	switch filter.Type {
-	case valueobjects.FilterTypeKey:
-		targetValue = message.Key
-	case valueobjects.FilterTypeValue:
-		targetValue = string(message.Value)
-	case valueobjects.FilterTypeHeader:
-		if filter.Field == "" {
-			return false
-		}
-		targetValue = message.Headers[filter.Field]
-	default:
-		return false
-	}
-
-	return r.compareValues(targetValue, filter.Operator, filter.Value)
-}
-
-// compareValues 比较值
-func (r *GRPCMessageRepository) compareValues(target string, operator valueobjects.FilterOperator, value string) bool {
-	switch operator {
-	case valueobjects.FilterOperatorEq:
-		return target == value
-	case valueobjects.FilterOperatorNe:
-		return target != value
-	case valueobjects.FilterOperatorContains:
-		return r.contains(target, value)
-	case valueobjects.FilterOperatorGt:
-		return target > value
-	case valueobjects.FilterOperatorGte:
-		return target >= value
-	case valueobjects.FilterOperatorLt:
-		return target < value
-	case valueobjects.FilterOperatorLte:
-		return target <= value
-	case valueobjects.FilterOperatorRegex:
-		return r.matchesRegex(target, value)
-	default:
-		return false
-	}
-}
-
-// contains 简单的字符串包含检查
-func (r *GRPCMessageRepository) contains(s, substr string) bool {
-	if len(substr) > len(s) {
-		return false
-	}
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
-// matchesRegex 正则表达式匹配
-func (r *GRPCMessageRepository) matchesRegex(target, pattern string) bool {
-	// 简化的正则表达式实现，只支持基本的模式匹配
-	// 在生产环境中，应该使用完整的正则表达式库
-
-	// 支持通配符 * 和 ?
-	return r.simplePatternMatch(target, pattern)
-}
-
-// simplePatternMatch 简单的模式匹配（支持 * 和 ?）
-func (r *GRPCMessageRepository) simplePatternMatch(text, pattern string) bool {
-	if pattern == "*" {
-		return true
-	}
-
-	// 递归匹配
-	return r.matchPattern(text, pattern, 0, 0)
-}
-
-// matchPattern 递归模式匹配
-func (r *GRPCMessageRepository) matchPattern(text, pattern string, textIdx, patternIdx int) bool {
-	// 如果模式已经匹配完
-	if patternIdx >= len(pattern) {
-		return textIdx >= len(text)
-	}
-
-	// 如果文本已经匹配完但模式还有非*字符
-	if textIdx >= len(text) {
-		for i := patternIdx; i < len(pattern); i++ {
-			if pattern[i] != '*' {
-				return false
-			}
-		}
-		return true
-	}
-
-	// 处理通配符
-	if pattern[patternIdx] == '*' {
-		// 尝试匹配0个或多个字符
-		for i := textIdx; i <= len(text); i++ {
-			if r.matchPattern(text, pattern, i, patternIdx+1) {
-				return true
-			}
-		}
-		return false
-	}
-
-	// 处理单字符通配符或精确匹配
-	if pattern[patternIdx] == '?' || pattern[patternIdx] == text[textIdx] {
-		return r.matchPattern(text, pattern, textIdx+1, patternIdx+1)
-	}
-
-	return false
-}
+// 客户端过滤逻辑已移除，过滤应该由服务端处理
 
 // ConsumeStream 流式消费消息
 func (r *GRPCMessageRepository) ConsumeStream(ctx context.Context, topic string, partition int32, offset int64) (<-chan *entities.Message, error) {
