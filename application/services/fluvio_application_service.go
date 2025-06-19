@@ -76,17 +76,42 @@ func (s *FluvioApplicationService) ProduceMessage(ctx context.Context, req *dtos
 func (s *FluvioApplicationService) ConsumeMessage(ctx context.Context, req *dtos.ConsumeMessageRequest) (*dtos.ConsumeMessageResponse, error) {
 	s.logger.Debug("Consuming messages", logging.Field{Key: "topic", Value: req.Topic})
 
-	// 简化实现：返回模拟消息
+	// 调用仓储层进行实际的消息消费
+	messages, err := s.messageRepo.Consume(ctx, req.Topic, req.Partition, req.Offset, req.MaxMessages)
+	if err != nil {
+		s.logger.Error("Failed to consume messages",
+			logging.Field{Key: "error", Value: err},
+			logging.Field{Key: "topic", Value: req.Topic})
+		return &dtos.ConsumeMessageResponse{
+			Success: false,
+			Error:   err.Error(),
+		}, err
+	}
+
+	// 转换为DTO
+	messageDTOs := make([]*dtos.MessageDTO, len(messages))
+	for i, message := range messages {
+		messageDTOs[i] = &dtos.MessageDTO{
+			ID:        message.ID,
+			MessageID: message.MessageID,
+			Topic:     message.Topic,
+			Key:       message.Key,
+			Value:     string(message.Value),
+			Headers:   message.Headers,
+			Partition: message.Partition,
+			Offset:    message.Offset,
+			Timestamp: message.Timestamp,
+		}
+	}
+
+	s.logger.Info("Messages consumed successfully",
+		logging.Field{Key: "topic", Value: req.Topic},
+		logging.Field{Key: "count", Value: len(messages)})
+
 	return &dtos.ConsumeMessageResponse{
-		Messages: []*dtos.MessageDTO{
-			{
-				Key:       "test-key",
-				Value:     "Hello from " + req.Topic,
-				Headers:   map[string]string{"source": "mock"},
-				Offset:    0,
-				Partition: 0,
-			},
-		},
+		Messages: messageDTOs,
+		Count:    len(messageDTOs),
+		Success:  true,
 	}, nil
 }
 

@@ -13,6 +13,7 @@ import (
 type Client interface {
 	// 基本消息操作
 	Produce(ctx context.Context, req *pb.ProduceRequest) (*pb.ProduceReply, error)
+	BatchProduce(ctx context.Context, req *pb.BatchProduceRequest) (*pb.BatchProduceReply, error)
 	Consume(ctx context.Context, req *pb.ConsumeRequest) (*pb.ConsumeReply, error)
 	StreamConsume(ctx context.Context, req *pb.StreamConsumeRequest) (pb.FluvioService_StreamConsumeClient, error)
 
@@ -119,6 +120,13 @@ func (c *DefaultClient) Produce(ctx context.Context, req *pb.ProduceRequest) (*p
 		return nil, err
 	}
 	return c.client.Produce(ctx, req)
+}
+
+func (c *DefaultClient) BatchProduce(ctx context.Context, req *pb.BatchProduceRequest) (*pb.BatchProduceReply, error) {
+	if err := c.ensureConnected(); err != nil {
+		return nil, err
+	}
+	return c.client.BatchProduce(ctx, req)
 }
 
 func (c *DefaultClient) Consume(ctx context.Context, req *pb.ConsumeRequest) (*pb.ConsumeReply, error) {

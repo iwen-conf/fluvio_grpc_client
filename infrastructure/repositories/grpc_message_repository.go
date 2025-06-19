@@ -114,6 +114,7 @@ func (r *GRPCMessageRepository) ProduceBatch(ctx context.Context, messages []*en
 
 	// 构建批量生产请求
 	req := &pb.BatchProduceRequest{
+		Topic:    messages[0].Topic, // 假设所有消息都是同一个主题
 		Messages: pbMessages,
 	}
 
@@ -125,29 +126,41 @@ func (r *GRPCMessageRepository) ProduceBatch(ctx context.Context, messages []*en
 	}
 
 	// 检查响应状态
-	if !resp.GetSuccess() {
-		errMsg := resp.GetError()
-		if errMsg == "" {
-			errMsg = "unknown error"
+	successFlags := resp.GetSuccess()
+	errorMessages := resp.GetError()
+
+	successCount := 0
+	failureCount := 0
+
+	// 处理每个消息的结果
+	for i, message := range messages {
+		if i < len(successFlags) {
+			if successFlags[i] {
+				successCount++
+				r.logger.Debug("消息生产成功",
+					logging.Field{Key: "message_id", Value: message.MessageID})
+			} else {
+				failureCount++
+				errMsg := "unknown error"
+				if i < len(errorMessages) && errorMessages[i] != "" {
+					errMsg = errorMessages[i]
+				}
+				r.logger.Error("消息生产失败",
+					logging.Field{Key: "message_id", Value: message.MessageID},
+					logging.Field{Key: "error", Value: errMsg})
+			}
 		}
-		r.logger.Error("批量生产被服务器拒绝", logging.Field{Key: "error", Value: errMsg})
-		return fmt.Errorf("batch produce failed: %s", errMsg)
 	}
 
-	// 更新消息的元数据（如果服务器返回了相关信息）
-	results := resp.GetResults()
-	for i, result := range results {
-		if i < len(messages) && result != nil {
-			messages[i].MessageID = result.GetMessageId()
-			messages[i].Partition = result.GetPartition()
-			messages[i].Offset = result.GetOffset()
-		}
+	// 如果有失败的消息，返回错误
+	if failureCount > 0 {
+		return fmt.Errorf("batch produce partially failed: %d success, %d failure", successCount, failureCount)
 	}
 
 	r.logger.Info("批量消息生产成功",
 		logging.Field{Key: "total", Value: len(messages)},
-		logging.Field{Key: "success_count", Value: resp.GetSuccessCount()},
-		logging.Field{Key: "failure_count", Value: resp.GetFailureCount()})
+		logging.Field{Key: "success_count", Value: successCount},
+		logging.Field{Key: "failure_count", Value: failureCount})
 
 	return nil
 }
@@ -230,22 +243,75 @@ func (r *GRPCMessageRepository) ConsumeFiltered(ctx context.Context, topic strin
 	return filteredMessages, nil
 }
 
-// matchesFilters 检查消息是否匹配过滤条件（简化实现）
+// matchesFilters 检查消息是否匹配过滤条件
 func (r *GRPCMessageRepository) matchesFilters(message *entities.Message, filters []*valueobjects.FilterCondition) bool {
 	if len(filters) == 0 {
 		return true
 	}
 
-	// 简化实现：只检查第一个过滤条件
-	filter := filters[0]
-	switch filter.Type {
-	case "key":
-		return message.Key == filter.Value
-	case "value":
-		return string(message.Value) == filter.Value
-	default:
-		return true
+	// 检查所有过滤条件（AND逻辑）
+	for _, filter := range filters {
+		if !r.matchesFilter(message, filter) {
+			return false
+		}
 	}
+	return true
+}
+
+// matchesFilter 检查消息是否匹配单个过滤条件
+func (r *GRPCMessageRepository) matchesFilter(message *entities.Message, filter *valueobjects.FilterCondition) bool {
+	var targetValue string
+
+	switch filter.Type {
+	case valueobjects.FilterTypeKey:
+		targetValue = message.Key
+	case valueobjects.FilterTypeValue:
+		targetValue = string(message.Value)
+	case valueobjects.FilterTypeHeader:
+		if filter.Field == "" {
+			return false
+		}
+		targetValue = message.Headers[filter.Field]
+	default:
+		return false
+	}
+
+	return r.compareValues(targetValue, filter.Operator, filter.Value)
+}
+
+// compareValues 比较值
+func (r *GRPCMessageRepository) compareValues(target string, operator valueobjects.FilterOperator, value string) bool {
+	switch operator {
+	case valueobjects.FilterOperatorEq:
+		return target == value
+	case valueobjects.FilterOperatorNe:
+		return target != value
+	case valueobjects.FilterOperatorContains:
+		return r.contains(target, value)
+	case valueobjects.FilterOperatorGt:
+		return target > value
+	case valueobjects.FilterOperatorGte:
+		return target >= value
+	case valueobjects.FilterOperatorLt:
+		return target < value
+	case valueobjects.FilterOperatorLte:
+		return target <= value
+	default:
+		return false
+	}
+}
+
+// contains 简单的字符串包含检查
+func (r *GRPCMessageRepository) contains(s, substr string) bool {
+	if len(substr) > len(s) {
+		return false
+	}
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
 
 // ConsumeStream 流式消费消息
