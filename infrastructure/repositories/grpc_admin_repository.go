@@ -76,18 +76,16 @@ func (r *GRPCAdminRepository) ListBrokers(ctx context.Context, req *dtos.ListBro
 		return nil, fmt.Errorf("failed to check broker health: %w", err)
 	}
 
-	// 简化实现：返回当前连接的broker信息
-	// 在真实实现中，应该从gRPC响应中获取broker列表
+	// 注意：当前protobuf定义中没有ListBrokers方法
+	// 这里通过健康检查来判断当前连接的broker状态
+	// 在真实实现中，应该有专门的ListBrokers gRPC方法
+
+	// 由于无法获取实际的broker列表，返回空列表并添加说明
+	r.logger.Warn("ListBrokers功能受限：protobuf中缺少ListBrokers方法，无法获取实际broker列表")
+
 	return &dtos.ListBrokersResponse{
-		Brokers: []*dtos.BrokerDTO{
-			{
-				ID:     1,
-				Host:   "101.43.173.154", // 使用实际的服务器地址
-				Port:   50051,
-				Status: "Running",
-				Addr:   "101.43.173.154:50051",
-			},
-		},
+		Brokers: []*dtos.BrokerDTO{}, // 返回空列表
+		Error:   "ListBrokers method not available in current protobuf definition",
 	}, nil
 }
 
@@ -208,8 +206,8 @@ func (r *GRPCAdminRepository) CreateSmartModule(ctx context.Context, req *dtos.C
 			Name:        req.Name,
 			InputKind:   pb.SmartModuleInput_SMART_MODULE_INPUT_STREAM,   // 默认输入类型
 			OutputKind:  pb.SmartModuleOutput_SMART_MODULE_OUTPUT_STREAM, // 默认输出类型
-			Description: "SmartModule created via API",
-			Version:     "1.0.0",
+			Description: "SmartModule created via gRPC API",              // 通用描述
+			Version:     "1.0.0",                                         // 默认版本
 		},
 		WasmCode: req.WasmCode,
 	}

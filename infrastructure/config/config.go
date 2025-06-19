@@ -50,7 +50,7 @@ type CircuitBreakerConfig struct {
 // NewDefaultConfig 创建默认配置
 func NewDefaultConfig() *Config {
 	return &Config{
-		Connection: valueobjects.NewConnectionConfig("localhost", 50051),
+		Connection: valueobjects.NewConnectionConfig("localhost", 50051), // 开发环境默认值
 		Logging: &LoggingConfig{
 			Level:      "info",
 			Format:     "json",

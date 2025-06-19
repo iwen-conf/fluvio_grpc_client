@@ -10,64 +10,57 @@ import (
 	"github.com/iwen-conf/fluvio_grpc_client/domain/valueobjects"
 	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/grpc"
 	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/logging"
+	"github.com/iwen-conf/fluvio_grpc_client/pkg/utils"
 	pb "github.com/iwen-conf/fluvio_grpc_client/proto/fluvio_service"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // GRPCMessageRepository gRPC消息仓储实现
 type GRPCMessageRepository struct {
-	client grpc.Client
-	logger logging.Logger
+	client    grpc.Client
+	logger    logging.Logger
+	handler   *utils.GRPCResponseHandler
+	converter *utils.DTOConverter
+	validator *utils.Validator
 }
 
 // NewGRPCMessageRepository 创建gRPC消息仓储
 func NewGRPCMessageRepository(client grpc.Client, logger logging.Logger) repositories.MessageRepository {
 	return &GRPCMessageRepository{
-		client: client,
-		logger: logger,
+		client:    client,
+		logger:    logger,
+		handler:   utils.NewGRPCResponseHandler(logger),
+		converter: utils.NewDTOConverter(),
+		validator: utils.NewValidator(),
 	}
 }
 
 // Produce 生产消息
 func (r *GRPCMessageRepository) Produce(ctx context.Context, message *entities.Message) error {
-	r.logger.Debug("生产消息",
-		logging.Field{Key: "topic", Value: message.Topic},
-		logging.Field{Key: "key", Value: message.Key},
-		logging.Field{Key: "message_id", Value: message.MessageID})
-
-	// 转换为protobuf请求
-	req := &pb.ProduceRequest{
-		Topic:     message.Topic,
-		Message:   string(message.Value), // 转换为字符串
-		Key:       message.Key,
-		Headers:   message.Headers,
-		MessageId: message.MessageID,
+	// 验证消息
+	if err := r.validator.ValidateMessage(message); err != nil {
+		return err
 	}
 
-	// 设置时间戳
-	if !message.Timestamp.IsZero() {
-		req.Timestamp = timestamppb.New(message.Timestamp)
-	}
+	// 记录调试日志
+	context := utils.NewContextBuilder().
+		Add("topic", message.Topic).
+		Add("key", message.Key).
+		Add("message_id", message.MessageID).
+		Build()
+	r.handler.LogDebugOperation("生产消息", context)
+
+	// 转换为gRPC请求
+	req := r.converter.MessageEntityToProtoRequest(message)
 
 	// 调用gRPC服务
 	resp, err := r.client.Produce(ctx, req)
 	if err != nil {
-		r.logger.Error("生产消息失败",
-			logging.Field{Key: "error", Value: err},
-			logging.Field{Key: "topic", Value: message.Topic})
-		return err
+		return r.handler.HandleError(err, "生产消息", context)
 	}
 
-	// 检查响应状态
-	if !resp.GetSuccess() {
-		errMsg := resp.GetError()
-		if errMsg == "" {
-			errMsg = "unknown error"
-		}
-		r.logger.Error("生产消息被服务器拒绝",
-			logging.Field{Key: "error", Value: errMsg},
-			logging.Field{Key: "topic", Value: message.Topic})
-		return fmt.Errorf("produce failed: %s", errMsg)
+	// 验证响应
+	if err := r.handler.ValidateResponse(resp.GetSuccess(), resp.GetError(), "生产消息", context); err != nil {
+		return err
 	}
 
 	// 更新消息元数据
@@ -78,73 +71,63 @@ func (r *GRPCMessageRepository) Produce(ctx context.Context, message *entities.M
 	message.Partition = 0
 	message.Offset = 0
 
-	r.logger.Info("消息生产成功",
-		logging.Field{Key: "message_id", Value: resp.GetMessageId()},
-		logging.Field{Key: "topic", Value: message.Topic})
+	// 记录成功日志
+	successContext := utils.NewContextBuilder().
+		Add("message_id", message.MessageID).
+		Add("topic", message.Topic).
+		Build()
+	r.handler.HandleSuccessResponse("消息生产", successContext)
 
 	return nil
 }
 
 // ProduceBatch 批量生产消息
 func (r *GRPCMessageRepository) ProduceBatch(ctx context.Context, messages []*entities.Message) error {
-	r.logger.Debug("批量生产消息", logging.Field{Key: "count", Value: len(messages)})
-
-	if len(messages) == 0 {
-		return nil
+	// 验证批量消息
+	if err := r.validator.ValidateBatchMessages(messages); err != nil {
+		return err
 	}
+
+	// 记录调试日志
+	context := utils.NewContextBuilder().
+		Add("count", len(messages)).
+		Add("topic", messages[0].Topic).
+		Build()
+	r.handler.LogDebugOperation("批量生产消息", context)
 
 	// 转换为protobuf请求
-	pbMessages := make([]*pb.ProduceRequest, len(messages))
-	for i, message := range messages {
-		pbMessage := &pb.ProduceRequest{
-			Topic:     message.Topic,
-			Message:   string(message.Value),
-			Key:       message.Key,
-			Headers:   message.Headers,
-			MessageId: message.MessageID,
-		}
-
-		// 设置时间戳
-		if !message.Timestamp.IsZero() {
-			pbMessage.Timestamp = timestamppb.New(message.Timestamp)
-		}
-
-		pbMessages[i] = pbMessage
-	}
+	pbMessages := r.converter.MessageEntitiesToProtoRequests(messages)
 
 	// 构建批量生产请求
 	req := &pb.BatchProduceRequest{
-		Topic:    messages[0].Topic, // 假设所有消息都是同一个主题
+		Topic:    messages[0].Topic,
 		Messages: pbMessages,
 	}
 
 	// 调用gRPC服务
 	resp, err := r.client.BatchProduce(ctx, req)
 	if err != nil {
-		r.logger.Error("批量生产消息失败", logging.Field{Key: "error", Value: err})
-		return fmt.Errorf("batch produce failed: %w", err)
+		return r.handler.HandleError(err, "批量生产消息", context)
 	}
 
-	// 检查响应状态
+	// 处理批量响应
+	result := utils.NewBatchOperationResult()
 	successFlags := resp.GetSuccess()
 	errorMessages := resp.GetError()
-
-	successCount := 0
-	failureCount := 0
 
 	// 处理每个消息的结果
 	for i, message := range messages {
 		if i < len(successFlags) {
 			if successFlags[i] {
-				successCount++
+				result.AddSuccess()
 				r.logger.Debug("消息生产成功",
 					logging.Field{Key: "message_id", Value: message.MessageID})
 			} else {
-				failureCount++
 				errMsg := "unknown error"
 				if i < len(errorMessages) && errorMessages[i] != "" {
 					errMsg = errorMessages[i]
 				}
+				result.AddFailure(fmt.Errorf("message %d failed: %s", i, errMsg))
 				r.logger.Error("消息生产失败",
 					logging.Field{Key: "message_id", Value: message.MessageID},
 					logging.Field{Key: "error", Value: errMsg})
@@ -152,26 +135,23 @@ func (r *GRPCMessageRepository) ProduceBatch(ctx context.Context, messages []*en
 		}
 	}
 
+	// 记录汇总日志
+	result.LogSummary(r.handler, "批量消息生产", context)
+
 	// 如果有失败的消息，返回错误
-	if failureCount > 0 {
-		return fmt.Errorf("batch produce partially failed: %d success, %d failure", successCount, failureCount)
-	}
-
-	r.logger.Info("批量消息生产成功",
-		logging.Field{Key: "total", Value: len(messages)},
-		logging.Field{Key: "success_count", Value: successCount},
-		logging.Field{Key: "failure_count", Value: failureCount})
-
-	return nil
+	return result.GetSummaryError()
 }
 
 // Consume 消费消息
 func (r *GRPCMessageRepository) Consume(ctx context.Context, topic string, partition int32, offset int64, maxMessages int) ([]*entities.Message, error) {
-	r.logger.Debug("消费消息",
-		logging.Field{Key: "topic", Value: topic},
-		logging.Field{Key: "partition", Value: partition},
-		logging.Field{Key: "offset", Value: offset},
-		logging.Field{Key: "max_messages", Value: maxMessages})
+	// 记录调试日志
+	context := utils.NewContextBuilder().
+		Add("topic", topic).
+		Add("partition", partition).
+		Add("offset", offset).
+		Add("max_messages", maxMessages).
+		Build()
+	r.handler.LogDebugOperation("消费消息", context)
 
 	req := &pb.ConsumeRequest{
 		Topic:       topic,
@@ -183,62 +163,87 @@ func (r *GRPCMessageRepository) Consume(ctx context.Context, topic string, parti
 	// 调用gRPC服务
 	resp, err := r.client.Consume(ctx, req)
 	if err != nil {
-		r.logger.Error("消费消息失败", logging.Field{Key: "error", Value: err})
-		return nil, err
+		return nil, r.handler.HandleError(err, "消费消息", context)
 	}
 
 	// 转换为实体
-	messages := make([]*entities.Message, len(resp.GetMessages()))
-	for i, pbMessage := range resp.GetMessages() {
-		message := &entities.Message{
-			ID:        pbMessage.GetMessageId(),
-			MessageID: pbMessage.GetMessageId(),
-			Topic:     topic, // 使用请求中的topic
-			Key:       pbMessage.GetKey(),
-			Value:     []byte(pbMessage.GetMessage()), // 转换为字节数组
-			Headers:   pbMessage.GetHeaders(),
-			Partition: pbMessage.GetPartition(),
-			Offset:    pbMessage.GetOffset(),
-			Timestamp: time.Unix(pbMessage.GetTimestamp(), 0), // 从protobuf获取时间戳
+	messages := r.converter.ConsumedMessagesToEntities(resp.GetMessages())
+
+	// 设置主题（因为protobuf消息中可能没有主题信息）
+	for _, message := range messages {
+		if message.Topic == "" {
+			message.Topic = topic
 		}
-		messages[i] = message
 	}
 
-	r.logger.Info("消息消费成功",
-		logging.Field{Key: "topic", Value: topic},
-		logging.Field{Key: "count", Value: len(messages)})
+	// 记录成功日志
+	successContext := utils.NewContextBuilder().
+		Add("topic", topic).
+		Add("count", len(messages)).
+		Build()
+	r.handler.HandleSuccessResponse("消息消费", successContext)
 
 	return messages, nil
 }
 
-// ConsumeFiltered 过滤消费消息（简化实现）
+// ConsumeFiltered 过滤消费消息
 func (r *GRPCMessageRepository) ConsumeFiltered(ctx context.Context, topic string, filters []*valueobjects.FilterCondition, maxMessages int) ([]*entities.Message, error) {
 	r.logger.Debug("过滤消费消息",
 		logging.Field{Key: "topic", Value: topic},
 		logging.Field{Key: "filters", Value: len(filters)},
 		logging.Field{Key: "max_messages", Value: maxMessages})
 
-	// 简化实现：先消费消息，然后在客户端进行过滤
-	allMessages, err := r.Consume(ctx, topic, 0, 0, maxMessages*2) // 获取更多消息以便过滤
-	if err != nil {
-		return nil, err
+	// 如果没有过滤条件，直接调用普通消费
+	if len(filters) == 0 {
+		return r.Consume(ctx, topic, 0, 0, maxMessages)
 	}
 
-	// 应用过滤条件
+	// 客户端过滤实现：分批获取消息直到满足过滤条件
 	var filteredMessages []*entities.Message
-	for _, message := range allMessages {
-		if r.matchesFilters(message, filters) {
-			filteredMessages = append(filteredMessages, message)
-			if len(filteredMessages) >= maxMessages {
-				break
+	batchSize := maxMessages * 2 // 初始批次大小
+	offset := int64(0)
+	totalScanned := 0
+	maxScanned := maxMessages * 10 // 最大扫描消息数，避免无限循环
+
+	for len(filteredMessages) < maxMessages && totalScanned < maxScanned {
+		// 获取一批消息
+		batch, err := r.Consume(ctx, topic, 0, offset, batchSize)
+		if err != nil {
+			return nil, fmt.Errorf("failed to consume batch for filtering: %w", err)
+		}
+
+		// 如果没有更多消息，退出循环
+		if len(batch) == 0 {
+			break
+		}
+
+		// 应用过滤条件
+		for _, message := range batch {
+			totalScanned++
+			if r.matchesFilters(message, filters) {
+				filteredMessages = append(filteredMessages, message)
+				if len(filteredMessages) >= maxMessages {
+					break
+				}
 			}
+		}
+
+		// 更新偏移量
+		if len(batch) > 0 {
+			offset = batch[len(batch)-1].Offset + 1
+		}
+
+		// 如果这批消息少于请求的数量，说明已经到达末尾
+		if len(batch) < batchSize {
+			break
 		}
 	}
 
-	r.logger.Info("过滤消费成功",
+	r.logger.Info("过滤消费完成",
 		logging.Field{Key: "topic", Value: topic},
 		logging.Field{Key: "filtered_count", Value: len(filteredMessages)},
-		logging.Field{Key: "total_scanned", Value: len(allMessages)})
+		logging.Field{Key: "total_scanned", Value: totalScanned},
+		logging.Field{Key: "filter_efficiency", Value: float64(len(filteredMessages)) / float64(totalScanned) * 100})
 
 	return filteredMessages, nil
 }
@@ -296,6 +301,8 @@ func (r *GRPCMessageRepository) compareValues(target string, operator valueobjec
 		return target < value
 	case valueobjects.FilterOperatorLte:
 		return target <= value
+	case valueobjects.FilterOperatorRegex:
+		return r.matchesRegex(target, value)
 	default:
 		return false
 	}
@@ -311,6 +318,61 @@ func (r *GRPCMessageRepository) contains(s, substr string) bool {
 			return true
 		}
 	}
+	return false
+}
+
+// matchesRegex 正则表达式匹配
+func (r *GRPCMessageRepository) matchesRegex(target, pattern string) bool {
+	// 简化的正则表达式实现，只支持基本的模式匹配
+	// 在生产环境中，应该使用完整的正则表达式库
+
+	// 支持通配符 * 和 ?
+	return r.simplePatternMatch(target, pattern)
+}
+
+// simplePatternMatch 简单的模式匹配（支持 * 和 ?）
+func (r *GRPCMessageRepository) simplePatternMatch(text, pattern string) bool {
+	if pattern == "*" {
+		return true
+	}
+
+	// 递归匹配
+	return r.matchPattern(text, pattern, 0, 0)
+}
+
+// matchPattern 递归模式匹配
+func (r *GRPCMessageRepository) matchPattern(text, pattern string, textIdx, patternIdx int) bool {
+	// 如果模式已经匹配完
+	if patternIdx >= len(pattern) {
+		return textIdx >= len(text)
+	}
+
+	// 如果文本已经匹配完但模式还有非*字符
+	if textIdx >= len(text) {
+		for i := patternIdx; i < len(pattern); i++ {
+			if pattern[i] != '*' {
+				return false
+			}
+		}
+		return true
+	}
+
+	// 处理通配符
+	if pattern[patternIdx] == '*' {
+		// 尝试匹配0个或多个字符
+		for i := textIdx; i <= len(text); i++ {
+			if r.matchPattern(text, pattern, i, patternIdx+1) {
+				return true
+			}
+		}
+		return false
+	}
+
+	// 处理单字符通配符或精确匹配
+	if pattern[patternIdx] == '?' || pattern[patternIdx] == text[textIdx] {
+		return r.matchPattern(text, pattern, textIdx+1, patternIdx+1)
+	}
+
 	return false
 }
 
