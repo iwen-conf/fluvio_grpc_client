@@ -6,7 +6,7 @@ import "google/protobuf/timestamp.proto"; // 导入 Timestamp 类型
 
 option go_package = "proto/fluvio_service"; // 指定生成的 Go 代码的包路径
 
-// FluvioService 定义了模拟 Fluvio 的核心服务接口
+// FluvioService 定义了 Fluvio 的核心服务接口
 service FluvioService {
   // 消息生产/消费相关
   rpc Produce(ProduceRequest) returns (ProduceReply);
@@ -324,7 +324,7 @@ message UpdateSmartModuleReply {
 // DescribeClusterRequest 获取集群状态请求
 message DescribeClusterRequest {}
 
-// DescribeClusterReply 获取集群状态响应 (占位符)
+// DescribeClusterReply 获取集群状态响应
 message DescribeClusterReply {
   string status = 1; // 例如: "Healthy", "Degraded"
   int32 controller_id = 2; // 控制器节点 ID
@@ -334,7 +334,7 @@ message DescribeClusterReply {
 // ListBrokersRequest 列出 Broker 请求
 message ListBrokersRequest {}
 
-// BrokerInfo Broker 节点信息 (占位符)
+// BrokerInfo Broker 节点信息
 message BrokerInfo {
   int64 id = 1;
   string addr = 2; // Broker 地址
@@ -347,13 +347,13 @@ message ListBrokersReply {
   string error = 2;
 }
 
-// GetMetricsRequest 获取指标请求 (占位符)
+// GetMetricsRequest 获取指标请求
 message GetMetricsRequest {
   repeated string metric_names = 1; // 指定要获取的指标名称 (可选)
   map<string, string> labels = 2; // 指定过滤标签 (可选)
 }
 
-// Metric 指标信息 (占位符)
+// Metric 指标信息
 message Metric {
   string name = 1;
   map<string, string> labels = 2;

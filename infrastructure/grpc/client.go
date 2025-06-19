@@ -32,6 +32,7 @@ type Client interface {
 	ListSmartModules(ctx context.Context, req *pb.ListSmartModulesRequest) (*pb.ListSmartModulesReply, error)
 	CreateSmartModule(ctx context.Context, req *pb.CreateSmartModuleRequest) (*pb.CreateSmartModuleReply, error)
 	DeleteSmartModule(ctx context.Context, req *pb.DeleteSmartModuleRequest) (*pb.DeleteSmartModuleReply, error)
+	DescribeSmartModule(ctx context.Context, req *pb.DescribeSmartModuleRequest) (*pb.DescribeSmartModuleReply, error)
 
 	// 健康检查
 	HealthCheck(ctx context.Context, req *pb.HealthCheckRequest) (*pb.HealthCheckReply, error)
@@ -204,6 +205,13 @@ func (c *DefaultClient) DeleteSmartModule(ctx context.Context, req *pb.DeleteSma
 		return nil, err
 	}
 	return c.client.DeleteSmartModule(ctx, req)
+}
+
+func (c *DefaultClient) DescribeSmartModule(ctx context.Context, req *pb.DescribeSmartModuleRequest) (*pb.DescribeSmartModuleReply, error) {
+	if err := c.ensureConnected(); err != nil {
+		return nil, err
+	}
+	return c.client.DescribeSmartModule(ctx, req)
 }
 
 func (c *DefaultClient) StreamConsume(ctx context.Context, req *pb.StreamConsumeRequest) (pb.FluvioService_StreamConsumeClient, error) {
