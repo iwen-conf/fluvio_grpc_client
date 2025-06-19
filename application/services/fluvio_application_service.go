@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/iwen-conf/fluvio_grpc_client/application/dtos"
+	"github.com/iwen-conf/fluvio_grpc_client/domain/entities"
 	"github.com/iwen-conf/fluvio_grpc_client/domain/repositories"
 	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/logging"
 )
@@ -35,11 +36,38 @@ func NewFluvioApplicationService(
 func (s *FluvioApplicationService) ProduceMessage(ctx context.Context, req *dtos.ProduceMessageRequest) (*dtos.ProduceMessageResponse, error) {
 	s.logger.Debug("Producing message", logging.Field{Key: "topic", Value: req.Topic})
 
-	// 简化实现：直接调用仓储
+	// 创建消息实体
+	message := entities.NewMessage(req.Key, req.Value)
+	message.Topic = req.Topic
+
+	if req.MessageID != "" {
+		message.WithMessageID(req.MessageID)
+	}
+
+	if req.Headers != nil {
+		message.WithHeaders(req.Headers)
+	}
+
+	// 调用仓储层进行实际的消息生产
+	if err := s.messageRepo.Produce(ctx, message); err != nil {
+		s.logger.Error("Failed to produce message",
+			logging.Field{Key: "error", Value: err},
+			logging.Field{Key: "topic", Value: req.Topic})
+		return &dtos.ProduceMessageResponse{
+			Success: false,
+			Error:   err.Error(),
+		}, err
+	}
+
+	s.logger.Info("Message produced successfully",
+		logging.Field{Key: "topic", Value: message.Topic},
+		logging.Field{Key: "message_id", Value: message.MessageID})
+
 	return &dtos.ProduceMessageResponse{
-		MessageID: "msg-" + req.Topic + "-001",
-		Offset:    0,
-		Partition: 0,
+		MessageID: message.MessageID,
+		Topic:     message.Topic,
+		Partition: message.Partition,
+		Offset:    message.Offset,
 		Success:   true,
 	}, nil
 }

@@ -85,22 +85,69 @@ func (r *GRPCMessageRepository) Produce(ctx context.Context, message *entities.M
 	return nil
 }
 
-// ProduceBatch 批量生产消息（简化实现）
+// ProduceBatch 批量生产消息
 func (r *GRPCMessageRepository) ProduceBatch(ctx context.Context, messages []*entities.Message) error {
 	r.logger.Debug("批量生产消息", logging.Field{Key: "count", Value: len(messages)})
 
-	// 简化实现：逐个调用单条消息生产
-	for _, message := range messages {
-		if err := r.Produce(ctx, message); err != nil {
-			r.logger.Error("批量生产中的消息失败",
-				logging.Field{Key: "error", Value: err},
-				logging.Field{Key: "message_id", Value: message.MessageID})
-			return err
+	if len(messages) == 0 {
+		return nil
+	}
+
+	// 转换为protobuf请求
+	pbMessages := make([]*pb.ProduceRequest, len(messages))
+	for i, message := range messages {
+		pbMessage := &pb.ProduceRequest{
+			Topic:     message.Topic,
+			Message:   string(message.Value),
+			Key:       message.Key,
+			Headers:   message.Headers,
+			MessageId: message.MessageID,
+		}
+
+		// 设置时间戳
+		if !message.Timestamp.IsZero() {
+			pbMessage.Timestamp = timestamppb.New(message.Timestamp)
+		}
+
+		pbMessages[i] = pbMessage
+	}
+
+	// 构建批量生产请求
+	req := &pb.BatchProduceRequest{
+		Messages: pbMessages,
+	}
+
+	// 调用gRPC服务
+	resp, err := r.client.BatchProduce(ctx, req)
+	if err != nil {
+		r.logger.Error("批量生产消息失败", logging.Field{Key: "error", Value: err})
+		return fmt.Errorf("batch produce failed: %w", err)
+	}
+
+	// 检查响应状态
+	if !resp.GetSuccess() {
+		errMsg := resp.GetError()
+		if errMsg == "" {
+			errMsg = "unknown error"
+		}
+		r.logger.Error("批量生产被服务器拒绝", logging.Field{Key: "error", Value: errMsg})
+		return fmt.Errorf("batch produce failed: %s", errMsg)
+	}
+
+	// 更新消息的元数据（如果服务器返回了相关信息）
+	results := resp.GetResults()
+	for i, result := range results {
+		if i < len(messages) && result != nil {
+			messages[i].MessageID = result.GetMessageId()
+			messages[i].Partition = result.GetPartition()
+			messages[i].Offset = result.GetOffset()
 		}
 	}
 
 	r.logger.Info("批量消息生产成功",
-		logging.Field{Key: "total", Value: len(messages)})
+		logging.Field{Key: "total", Value: len(messages)},
+		logging.Field{Key: "success_count", Value: resp.GetSuccessCount()},
+		logging.Field{Key: "failure_count", Value: resp.GetFailureCount()})
 
 	return nil
 }
