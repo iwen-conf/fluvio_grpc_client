@@ -342,55 +342,61 @@ func (r *GRPCTopicRepository) GetDetail(ctx context.Context, name string) (*enti
 func (r *GRPCTopicRepository) GetStats(ctx context.Context, name string) (*repositories.TopicStats, error) {
 	r.logger.Debug("Getting topic stats", logging.Field{Key: "name", Value: name})
 
-	// 首先获取主题详情
-	topic, err := r.GetByName(ctx, name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get topic for stats: %w", err)
+	// 构建gRPC请求
+	grpcReq := &pb.GetTopicStatsRequest{
+		Topic:             name,
+		IncludePartitions: true,
 	}
 
-	if topic == nil {
-		return nil, fmt.Errorf("topic not found: %s", name)
+	// 调用真实的gRPC服务
+	resp, err := r.client.GetTopicStats(ctx, grpcReq)
+	if err != nil {
+		r.logger.Error("获取主题统计失败", logging.Field{Key: "error", Value: err})
+		return nil, fmt.Errorf("failed to get topic stats: %w", err)
+	}
+
+	// 检查错误
+	if resp.GetError() != "" {
+		return nil, fmt.Errorf("get topic stats failed: %s", resp.GetError())
+	}
+
+	// 查找指定主题的统计信息
+	var topicStats *pb.TopicStats
+	for _, stats := range resp.GetTopics() {
+		if stats.GetTopic() == name {
+			topicStats = stats
+			break
+		}
+	}
+
+	if topicStats == nil {
+		return nil, fmt.Errorf("topic stats not found: %s", name)
+	}
+
+	// 转换分区统计信息
+	partitionStats := make([]*repositories.PartitionStats, len(topicStats.GetPartitions()))
+	for i, partition := range topicStats.GetPartitions() {
+		partitionStats[i] = &repositories.PartitionStats{
+			PartitionID:    partition.GetPartitionId(),
+			MessageCount:   partition.GetMessageCount(),
+			TotalSizeBytes: partition.GetTotalSizeBytes(),
+			HighWatermark:  partition.GetLatestOffset(),
+			LowWatermark:   partition.GetEarliestOffset(),
+		}
 	}
 
 	// 构建主题统计信息
 	stats := &repositories.TopicStats{
-		Topic:          name,
-		PartitionCount: topic.Partitions,
-		PartitionStats: make([]*repositories.PartitionStats, topic.Partitions),
+		Topic:             name,
+		TotalMessageCount: topicStats.GetTotalMessageCount(),
+		TotalSizeBytes:    topicStats.GetTotalSizeBytes(),
+		PartitionCount:    topicStats.GetPartitionCount(),
+		PartitionStats:    partitionStats,
 	}
-
-	// 获取每个分区的统计信息
-	var totalMessageCount int64
-	var totalSizeBytes int64
-
-	for i := int32(0); i < topic.Partitions; i++ {
-		partitionStats, err := r.GetPartitionStats(ctx, name, i)
-		if err != nil {
-			r.logger.Error("获取分区统计失败",
-				logging.Field{Key: "topic", Value: name},
-				logging.Field{Key: "partition", Value: i},
-				logging.Field{Key: "error", Value: err})
-			// 继续处理其他分区，不中断整个过程
-			partitionStats = &repositories.PartitionStats{
-				PartitionID:    i,
-				MessageCount:   0,
-				TotalSizeBytes: 0,
-				HighWatermark:  0,
-				LowWatermark:   0,
-			}
-		}
-
-		stats.PartitionStats[i] = partitionStats
-		totalMessageCount += partitionStats.MessageCount
-		totalSizeBytes += partitionStats.TotalSizeBytes
-	}
-
-	stats.TotalMessageCount = totalMessageCount
-	stats.TotalSizeBytes = totalSizeBytes
 
 	r.logger.Debug("获取主题统计成功",
 		logging.Field{Key: "topic", Value: name},
-		logging.Field{Key: "total_messages", Value: totalMessageCount})
+		logging.Field{Key: "total_messages", Value: stats.TotalMessageCount})
 
 	return stats, nil
 }
@@ -401,13 +407,13 @@ func (r *GRPCTopicRepository) GetPartitionStats(ctx context.Context, name string
 		logging.Field{Key: "name", Value: name},
 		logging.Field{Key: "partition", Value: partition})
 
-	// 注意：当前protobuf定义中没有专门的分区统计方法
-	// 这里使用DescribeTopic来获取分区信息
-	grpcReq := &pb.DescribeTopicRequest{
-		Topic: name,
+	// 构建gRPC请求，使用GetTopicStats获取真实的分区统计信息
+	grpcReq := &pb.GetTopicStatsRequest{
+		Topic:             name,
+		IncludePartitions: true,
 	}
 
-	resp, err := r.client.DescribeTopic(ctx, grpcReq)
+	resp, err := r.client.GetTopicStats(ctx, grpcReq)
 	if err != nil {
 		r.logger.Error("获取分区统计失败",
 			logging.Field{Key: "error", Value: err},
@@ -421,24 +427,33 @@ func (r *GRPCTopicRepository) GetPartitionStats(ctx context.Context, name string
 		return nil, fmt.Errorf("get partition stats failed: %s", resp.GetError())
 	}
 
-	// 从分区列表中查找对应的分区
-	partitions := resp.GetPartitions()
-	if int(partition) >= len(partitions) {
-		return nil, fmt.Errorf("partition %d not found in topic %s", partition, name)
+	// 查找指定主题的统计信息
+	var topicStats *pb.TopicStats
+	for _, stats := range resp.GetTopics() {
+		if stats.GetTopic() == name {
+			topicStats = stats
+			break
+		}
 	}
 
-	// 构建分区统计信息（基于可用的信息）
-	stats := &repositories.PartitionStats{
-		PartitionID:    partition,
-		MessageCount:   0, // protobuf中没有这个信息，设为0
-		TotalSizeBytes: 0, // protobuf中没有这个信息，设为0
-		HighWatermark:  0, // protobuf中没有这个信息，设为0
-		LowWatermark:   0, // protobuf中没有这个信息，设为0
+	if topicStats == nil {
+		return nil, fmt.Errorf("topic stats not found: %s", name)
 	}
 
-	r.logger.Debug("获取分区统计成功",
-		logging.Field{Key: "topic", Value: name},
-		logging.Field{Key: "partition", Value: partition})
+	// 查找指定分区的统计信息
+	for _, partitionStat := range topicStats.GetPartitions() {
+		if partitionStat.GetPartitionId() == partition {
+			stats := &repositories.PartitionStats{
+				PartitionID:    partitionStat.GetPartitionId(),
+				MessageCount:   partitionStat.GetMessageCount(),
+				TotalSizeBytes: partitionStat.GetTotalSizeBytes(),
+				HighWatermark:  partitionStat.GetLatestOffset(),
+				LowWatermark:   partitionStat.GetEarliestOffset(),
+			}
+			return stats, nil
+		}
+	}
 
-	return stats, nil
+	return nil, fmt.Errorf("partition %d not found for topic %s", partition, name)
+
 }

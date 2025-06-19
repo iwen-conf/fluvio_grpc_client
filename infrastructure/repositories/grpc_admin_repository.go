@@ -29,36 +29,30 @@ func NewGRPCAdminRepository(client grpc.Client, logger logging.Logger) repositor
 func (r *GRPCAdminRepository) DescribeCluster(ctx context.Context, req *dtos.DescribeClusterRequest) (*dtos.DescribeClusterResponse, error) {
 	r.logger.Debug("Describing cluster")
 
-	// 注意：当前gRPC客户端接口中没有DescribeCluster方法
-	// 这个方法在FluvioAdminService中定义，但客户端接口只包含FluvioService
-	// 这里使用健康检查来判断集群状态
-	healthReq := &pb.HealthCheckRequest{}
-	healthResp, err := r.client.HealthCheck(ctx, healthReq)
+	// 构建gRPC请求
+	grpcReq := &pb.DescribeClusterRequest{}
+
+	// 调用真实的gRPC服务
+	resp, err := r.client.DescribeCluster(ctx, grpcReq)
 	if err != nil {
-		r.logger.Error("健康检查失败", logging.Field{Key: "error", Value: err})
+		r.logger.Error("描述集群失败", logging.Field{Key: "error", Value: err})
+		return nil, fmt.Errorf("failed to describe cluster: %w", err)
+	}
+
+	// 检查错误
+	if resp.GetError() != "" {
 		return &dtos.DescribeClusterResponse{
-			Cluster: &dtos.ClusterDTO{
-				ID:           "fluvio-cluster",
-				Status:       "Unhealthy",
-				ControllerID: 0,
-			},
-			Error: fmt.Sprintf("cluster health check failed: %v", err),
+			Error: resp.GetError(),
 		}, nil
 	}
 
-	// 根据健康检查结果判断集群状态
-	status := "Healthy"
-	if !healthResp.GetOk() {
-		status = "Unhealthy"
-	}
-
-	r.logger.Debug("集群状态检查成功", logging.Field{Key: "status", Value: status})
+	r.logger.Debug("描述集群成功", logging.Field{Key: "status", Value: resp.GetStatus()})
 
 	return &dtos.DescribeClusterResponse{
 		Cluster: &dtos.ClusterDTO{
-			ID:           "fluvio-cluster",
-			Status:       status,
-			ControllerID: 1, // 默认控制器ID
+			ID:           fmt.Sprintf("cluster-%d", resp.GetControllerId()),
+			Status:       resp.GetStatus(),
+			ControllerID: resp.GetControllerId(),
 		},
 	}, nil
 }
@@ -67,25 +61,37 @@ func (r *GRPCAdminRepository) DescribeCluster(ctx context.Context, req *dtos.Des
 func (r *GRPCAdminRepository) ListBrokers(ctx context.Context, req *dtos.ListBrokersRequest) (*dtos.ListBrokersResponse, error) {
 	r.logger.Debug("Listing brokers")
 
-	// 由于当前protobuf定义中没有ListBrokers方法，我们使用健康检查来模拟
-	// 在实际实现中，应该有专门的ListBrokers gRPC方法
-	healthReq := &pb.HealthCheckRequest{}
-	_, err := r.client.HealthCheck(ctx, healthReq)
+	// 构建gRPC请求
+	grpcReq := &pb.ListBrokersRequest{}
+
+	// 调用真实的gRPC服务
+	resp, err := r.client.ListBrokers(ctx, grpcReq)
 	if err != nil {
-		r.logger.Error("健康检查失败", logging.Field{Key: "error", Value: err})
-		return nil, fmt.Errorf("failed to check broker health: %w", err)
+		r.logger.Error("列出Broker失败", logging.Field{Key: "error", Value: err})
+		return nil, fmt.Errorf("failed to list brokers: %w", err)
 	}
 
-	// 注意：当前protobuf定义中没有ListBrokers方法
-	// 这里通过健康检查来判断当前连接的broker状态
-	// 在真实实现中，应该有专门的ListBrokers gRPC方法
+	// 检查错误
+	if resp.GetError() != "" {
+		return &dtos.ListBrokersResponse{
+			Error: resp.GetError(),
+		}, nil
+	}
 
-	// 由于无法获取实际的broker列表，返回空列表并添加说明
-	r.logger.Warn("ListBrokers功能受限：protobuf中缺少ListBrokers方法，无法获取实际broker列表")
+	// 转换响应
+	brokers := make([]*dtos.BrokerDTO, len(resp.GetBrokers()))
+	for i, broker := range resp.GetBrokers() {
+		brokers[i] = &dtos.BrokerDTO{
+			ID:     int32(broker.GetId()),
+			Host:   broker.GetAddr(),
+			Status: broker.GetStatus(),
+		}
+	}
+
+	r.logger.Debug("列出Broker成功", logging.Field{Key: "count", Value: len(brokers)})
 
 	return &dtos.ListBrokersResponse{
-		Brokers: []*dtos.BrokerDTO{}, // 返回空列表
-		Error:   "ListBrokers method not available in current protobuf definition",
+		Brokers: brokers,
 	}, nil
 }
 

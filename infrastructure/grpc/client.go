@@ -34,6 +34,14 @@ type Client interface {
 	DeleteSmartModule(ctx context.Context, req *pb.DeleteSmartModuleRequest) (*pb.DeleteSmartModuleReply, error)
 	DescribeSmartModule(ctx context.Context, req *pb.DescribeSmartModuleRequest) (*pb.DescribeSmartModuleReply, error)
 
+	// 统计信息操作
+	GetTopicStats(ctx context.Context, req *pb.GetTopicStatsRequest) (*pb.GetTopicStatsReply, error)
+
+	// 管理操作（FluvioAdminService）
+	DescribeCluster(ctx context.Context, req *pb.DescribeClusterRequest) (*pb.DescribeClusterReply, error)
+	ListBrokers(ctx context.Context, req *pb.ListBrokersRequest) (*pb.ListBrokersReply, error)
+	GetMetrics(ctx context.Context, req *pb.GetMetricsRequest) (*pb.GetMetricsReply, error)
+
 	// 健康检查
 	HealthCheck(ctx context.Context, req *pb.HealthCheckRequest) (*pb.HealthCheckReply, error)
 
@@ -47,6 +55,7 @@ type Client interface {
 type DefaultClient struct {
 	connManager *ConnectionManager
 	client      pb.FluvioServiceClient
+	adminClient pb.FluvioAdminServiceClient
 	connected   bool
 	mu          sync.RWMutex
 }
@@ -77,6 +86,7 @@ func (c *DefaultClient) Connect() error {
 	}
 
 	c.client = pb.NewFluvioServiceClient(conn)
+	c.adminClient = pb.NewFluvioAdminServiceClient(conn)
 	c.connected = true
 	return nil
 }
@@ -92,6 +102,7 @@ func (c *DefaultClient) Close() error {
 
 	c.connected = false
 	c.client = nil
+	c.adminClient = nil
 	return c.connManager.Close()
 }
 
@@ -226,4 +237,36 @@ func (c *DefaultClient) HealthCheck(ctx context.Context, req *pb.HealthCheckRequ
 		return nil, err
 	}
 	return c.client.HealthCheck(ctx, req)
+}
+
+// 统计信息操作实现
+
+func (c *DefaultClient) GetTopicStats(ctx context.Context, req *pb.GetTopicStatsRequest) (*pb.GetTopicStatsReply, error) {
+	if err := c.ensureConnected(); err != nil {
+		return nil, err
+	}
+	return c.client.GetTopicStats(ctx, req)
+}
+
+// 管理操作实现（FluvioAdminService）
+
+func (c *DefaultClient) DescribeCluster(ctx context.Context, req *pb.DescribeClusterRequest) (*pb.DescribeClusterReply, error) {
+	if err := c.ensureConnected(); err != nil {
+		return nil, err
+	}
+	return c.adminClient.DescribeCluster(ctx, req)
+}
+
+func (c *DefaultClient) ListBrokers(ctx context.Context, req *pb.ListBrokersRequest) (*pb.ListBrokersReply, error) {
+	if err := c.ensureConnected(); err != nil {
+		return nil, err
+	}
+	return c.adminClient.ListBrokers(ctx, req)
+}
+
+func (c *DefaultClient) GetMetrics(ctx context.Context, req *pb.GetMetricsRequest) (*pb.GetMetricsReply, error) {
+	if err := c.ensureConnected(); err != nil {
+		return nil, err
+	}
+	return c.adminClient.GetMetrics(ctx, req)
 }

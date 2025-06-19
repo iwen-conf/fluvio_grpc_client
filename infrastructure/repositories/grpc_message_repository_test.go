@@ -86,6 +86,23 @@ func (m *MockGRPCClient) HealthCheck(ctx context.Context, req *pb.HealthCheckReq
 	return nil, nil
 }
 
+// 新增的方法实现
+func (m *MockGRPCClient) GetTopicStats(ctx context.Context, req *pb.GetTopicStatsRequest) (*pb.GetTopicStatsReply, error) {
+	return nil, nil
+}
+
+func (m *MockGRPCClient) DescribeCluster(ctx context.Context, req *pb.DescribeClusterRequest) (*pb.DescribeClusterReply, error) {
+	return nil, nil
+}
+
+func (m *MockGRPCClient) ListBrokers(ctx context.Context, req *pb.ListBrokersRequest) (*pb.ListBrokersReply, error) {
+	return nil, nil
+}
+
+func (m *MockGRPCClient) GetMetrics(ctx context.Context, req *pb.GetMetricsRequest) (*pb.GetMetricsReply, error) {
+	return nil, nil
+}
+
 func (m *MockGRPCClient) Connect() error {
 	return nil
 }
