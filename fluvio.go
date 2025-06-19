@@ -51,8 +51,11 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		}
 	}
 
-	// 创建gRPC客户端（这里需要实际实现）
-	grpcClient := &grpc.DefaultClient{} // 简化实现
+	// 创建连接管理器
+	connManager := grpc.NewConnectionManager(cfg.Connection, logger)
+
+	// 创建真实的gRPC客户端
+	grpcClient := grpc.NewDefaultClient(connManager)
 
 	// 创建仓储
 	messageRepo := repositories.NewGRPCMessageRepository(grpcClient, logger)
@@ -97,7 +100,7 @@ func (c *Client) Close() error {
 	}
 
 	c.logger.Info("Closing connection to Fluvio server")
-	
+
 	if err := c.grpcClient.Close(); err != nil {
 		c.logger.Error("Error closing gRPC client", logging.Field{Key: "error", Value: err})
 		return err
@@ -115,7 +118,7 @@ func (c *Client) Ping(ctx context.Context) (time.Duration, error) {
 	}
 
 	start := time.Now()
-	
+
 	// 执行健康检查作为ping
 	if err := c.HealthCheck(ctx); err != nil {
 		return 0, err

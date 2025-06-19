@@ -2,7 +2,7 @@ package usecases
 
 import (
 	"context"
-	
+
 	"github.com/iwen-conf/fluvio_grpc_client/application/dtos"
 	"github.com/iwen-conf/fluvio_grpc_client/domain/entities"
 	"github.com/iwen-conf/fluvio_grpc_client/domain/repositories"
@@ -37,13 +37,13 @@ func (uc *ConsumeMessageUseCase) Execute(ctx context.Context, req *dtos.ConsumeM
 			Error:   err.Error(),
 		}, err
 	}
-	
+
 	// 转换为DTO
 	messageDTOs := make([]*dtos.MessageDTO, len(messages))
 	for i, message := range messages {
 		messageDTOs[i] = uc.entityToDTO(message)
 	}
-	
+
 	return &dtos.ConsumeMessageResponse{
 		Messages: messageDTOs,
 		Count:    len(messageDTOs),
@@ -63,7 +63,7 @@ func (uc *ConsumeMessageUseCase) ExecuteFiltered(ctx context.Context, req *dtos.
 			Value:    filterDTO.Value,
 		}
 	}
-	
+
 	// 过滤消费
 	messages, err := uc.messageRepo.ConsumeFiltered(ctx, req.Topic, filters, req.MaxMessages)
 	if err != nil {
@@ -72,23 +72,23 @@ func (uc *ConsumeMessageUseCase) ExecuteFiltered(ctx context.Context, req *dtos.
 			Error:   err.Error(),
 		}, err
 	}
-	
+
 	// 应用过滤逻辑
 	filteredMessages := make([]*entities.Message, 0)
 	totalScanned := len(messages)
-	
+
 	for _, message := range messages {
 		if uc.messageService.ApplyFilters(message, filters, req.AndLogic) {
 			filteredMessages = append(filteredMessages, message)
 		}
 	}
-	
+
 	// 转换为DTO
 	messageDTOs := make([]*dtos.MessageDTO, len(filteredMessages))
 	for i, message := range filteredMessages {
 		messageDTOs[i] = uc.entityToDTO(message)
 	}
-	
+
 	return &dtos.FilteredConsumeResponse{
 		Messages:      messageDTOs,
 		FilteredCount: len(filteredMessages),
@@ -104,7 +104,7 @@ func (uc *ConsumeMessageUseCase) entityToDTO(message *entities.Message) *dtos.Me
 		MessageID: message.MessageID,
 		Topic:     message.Topic,
 		Key:       message.Key,
-		Value:     message.Value,
+		Value:     string(message.Value), // 转换为字符串
 		Headers:   message.Headers,
 		Partition: message.Partition,
 		Offset:    message.Offset,

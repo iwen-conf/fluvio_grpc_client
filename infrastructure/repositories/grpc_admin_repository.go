@@ -2,11 +2,13 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/iwen-conf/fluvio_grpc_client/application/dtos"
 	"github.com/iwen-conf/fluvio_grpc_client/domain/repositories"
 	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/grpc"
 	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/logging"
+	pb "github.com/iwen-conf/fluvio_grpc_client/proto/fluvio_service"
 )
 
 // GRPCAdminRepository gRPC管理仓储实现
@@ -41,15 +43,25 @@ func (r *GRPCAdminRepository) DescribeCluster(ctx context.Context, req *dtos.Des
 func (r *GRPCAdminRepository) ListBrokers(ctx context.Context, req *dtos.ListBrokersRequest) (*dtos.ListBrokersResponse, error) {
 	r.logger.Debug("Listing brokers")
 
-	// 简化实现：返回模拟数据
+	// 由于当前protobuf定义中没有ListBrokers方法，我们使用健康检查来模拟
+	// 在实际实现中，应该有专门的ListBrokers gRPC方法
+	healthReq := &pb.HealthCheckRequest{}
+	_, err := r.client.HealthCheck(ctx, healthReq)
+	if err != nil {
+		r.logger.Error("健康检查失败", logging.Field{Key: "error", Value: err})
+		return nil, fmt.Errorf("failed to check broker health: %w", err)
+	}
+
+	// 简化实现：返回当前连接的broker信息
+	// 在真实实现中，应该从gRPC响应中获取broker列表
 	return &dtos.ListBrokersResponse{
 		Brokers: []*dtos.BrokerDTO{
 			{
 				ID:     1,
-				Host:   "localhost",
+				Host:   "101.43.173.154", // 使用实际的服务器地址
 				Port:   50051,
 				Status: "Running",
-				Addr:   "localhost:50051",
+				Addr:   "101.43.173.154:50051",
 			},
 		},
 	}, nil
@@ -59,18 +71,29 @@ func (r *GRPCAdminRepository) ListBrokers(ctx context.Context, req *dtos.ListBro
 func (r *GRPCAdminRepository) ListConsumerGroups(ctx context.Context, req *dtos.ListConsumerGroupsRequest) (*dtos.ListConsumerGroupsResponse, error) {
 	r.logger.Debug("Listing consumer groups")
 
-	// 简化实现：返回模拟数据
+	// 构建gRPC请求
+	grpcReq := &pb.ListConsumerGroupsRequest{}
+
+	// 调用gRPC服务
+	resp, err := r.client.ListConsumerGroups(ctx, grpcReq)
+	if err != nil {
+		r.logger.Error("列出消费者组失败", logging.Field{Key: "error", Value: err})
+		return nil, fmt.Errorf("failed to list consumer groups: %w", err)
+	}
+
+	// 转换响应
+	groups := make([]*dtos.ConsumerGroupDTO, len(resp.GetGroups()))
+	for i, group := range resp.GetGroups() {
+		groups[i] = &dtos.ConsumerGroupDTO{
+			GroupID: group.GetGroupId(),
+			State:   "Active", // 简化实现：假设所有组都是活跃的
+		}
+	}
+
+	r.logger.Debug("列出消费者组成功", logging.Field{Key: "count", Value: len(groups)})
+
 	return &dtos.ListConsumerGroupsResponse{
-		Groups: []*dtos.ConsumerGroupDTO{
-			{
-				GroupID: "test-group",
-				State:   "Stable",
-			},
-			{
-				GroupID: "my-group",
-				State:   "Stable",
-			},
-		},
+		Groups: groups,
 	}, nil
 }
 
@@ -78,18 +101,37 @@ func (r *GRPCAdminRepository) ListConsumerGroups(ctx context.Context, req *dtos.
 func (r *GRPCAdminRepository) DescribeConsumerGroup(ctx context.Context, req *dtos.DescribeConsumerGroupRequest) (*dtos.DescribeConsumerGroupResponse, error) {
 	r.logger.Debug("Describing consumer group", logging.Field{Key: "group_id", Value: req.GroupID})
 
-	// 简化实现：返回模拟数据
+	// 构建gRPC请求
+	grpcReq := &pb.DescribeConsumerGroupRequest{
+		GroupId: req.GroupID,
+	}
+
+	// 调用gRPC服务
+	resp, err := r.client.DescribeConsumerGroup(ctx, grpcReq)
+	if err != nil {
+		r.logger.Error("描述消费者组失败",
+			logging.Field{Key: "error", Value: err},
+			logging.Field{Key: "group_id", Value: req.GroupID})
+		return nil, fmt.Errorf("failed to describe consumer group: %w", err)
+	}
+
+	// 检查错误
+	if resp.GetError() != "" {
+		return &dtos.DescribeConsumerGroupResponse{
+			Error: resp.GetError(),
+		}, nil
+	}
+
+	r.logger.Debug("描述消费者组成功",
+		logging.Field{Key: "group_id", Value: req.GroupID},
+		logging.Field{Key: "offsets_count", Value: len(resp.GetOffsets())})
+
+	// 简化实现：由于protobuf定义中没有成员信息，我们返回空的成员列表
 	return &dtos.DescribeConsumerGroupResponse{
 		Group: &dtos.ConsumerGroupDTO{
 			GroupID: req.GroupID,
-			State:   "Stable",
-			Members: []*dtos.ConsumerGroupMemberDTO{
-				{
-					MemberID:   "member-1",
-					ClientID:   "client-1",
-					ClientHost: "localhost",
-				},
-			},
+			State:   "Active",                         // 简化实现
+			Members: []*dtos.ConsumerGroupMemberDTO{}, // 空成员列表
 		},
 	}, nil
 }

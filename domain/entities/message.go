@@ -9,17 +9,17 @@ type Message struct {
 	// 核心标识
 	ID        string
 	MessageID string // 用户自定义的消息ID
-	
+
 	// 消息内容
 	Key     string
-	Value   string
+	Value   []byte // 支持二进制数据
 	Headers map[string]string
-	
+
 	// 元数据
 	Topic     string
 	Partition int32
 	Offset    int64
-	
+
 	// 时间戳
 	Timestamp time.Time
 	CreatedAt time.Time
@@ -27,6 +27,18 @@ type Message struct {
 
 // NewMessage 创建新的消息实体
 func NewMessage(key, value string) *Message {
+	now := time.Now()
+	return &Message{
+		Key:       key,
+		Value:     []byte(value),
+		Headers:   make(map[string]string),
+		Timestamp: now,
+		CreatedAt: now,
+	}
+}
+
+// NewMessageBytes 创建新的消息实体（二进制数据）
+func NewMessageBytes(key string, value []byte) *Message {
 	now := time.Now()
 	return &Message{
 		Key:       key,
@@ -60,7 +72,7 @@ func (m *Message) AddHeader(key, value string) *Message {
 
 // IsValid 验证消息是否有效
 func (m *Message) IsValid() bool {
-	return m.Value != "" && m.Topic != ""
+	return len(m.Value) > 0 && m.Topic != ""
 }
 
 // Size 计算消息大小（字节）

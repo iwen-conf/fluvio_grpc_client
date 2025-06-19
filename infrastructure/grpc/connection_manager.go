@@ -9,6 +9,7 @@ import (
 
 	"github.com/iwen-conf/fluvio_grpc_client/domain/valueobjects"
 	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/logging"
+	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/retry"
 	"github.com/iwen-conf/fluvio_grpc_client/pkg/errors"
 
 	"google.golang.org/grpc"
@@ -71,41 +72,60 @@ func (cm *ConnectionManager) GetConnection(ctx context.Context) (*grpc.ClientCon
 	return newConn, nil
 }
 
-// createConnection 创建新连接
+// createConnection 创建新连接（带重试机制）
 func (cm *ConnectionManager) createConnection(ctx context.Context, serverAddr string) (*grpc.ClientConn, error) {
 	cm.logger.Info("正在创建gRPC连接", logging.Field{Key: "address", Value: serverAddr})
 
-	opts := []grpc.DialOption{
-		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                cm.config.KeepAliveTime,
-			Timeout:             cm.config.KeepAliveTimeout,
-			PermitWithoutStream: true,
-		}),
+	var conn *grpc.ClientConn
+
+	// 使用重试机制创建连接
+	retryConfig := &retry.RetryConfig{
+		MaxAttempts: 3,
+		BaseDelay:   500 * time.Millisecond,
+		MaxDelay:    5 * time.Second,
+		Multiplier:  2.0,
 	}
 
-	// 配置TLS
-	if cm.config.TLSEnabled {
-		creds, err := cm.createTLSCredentials()
-		if err != nil {
-			return nil, errors.Wrap(errors.ErrConnection, "创建TLS凭据失败", err)
+	err := retry.Retry(ctx, retryConfig, retry.DefaultIsRetryableError, func() error {
+		opts := []grpc.DialOption{
+			grpc.WithKeepaliveParams(keepalive.ClientParameters{
+				Time:                cm.config.KeepAliveTime,
+				Timeout:             cm.config.KeepAliveTimeout,
+				PermitWithoutStream: true,
+			}),
 		}
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else {
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	}
 
-	// 创建连接
-	conn, err := grpc.NewClient(serverAddr, opts...)
+		// 配置TLS
+		if cm.config.TLSEnabled {
+			creds, err := cm.createTLSCredentials()
+			if err != nil {
+				return errors.Wrap(errors.ErrConnection, "创建TLS凭据失败", err)
+			}
+			opts = append(opts, grpc.WithTransportCredentials(creds))
+		} else {
+			opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		}
+
+		// 创建连接
+		newConn, err := grpc.NewClient(serverAddr, opts...)
+		if err != nil {
+			return errors.Wrap(errors.ErrConnection, "创建gRPC客户端失败", err)
+		}
+
+		// 等待连接就绪
+		connectCtx, cancel := context.WithTimeout(ctx, cm.config.ConnectTimeout)
+		defer cancel()
+
+		if err := cm.waitForConnection(connectCtx, newConn); err != nil {
+			newConn.Close()
+			return err
+		}
+
+		conn = newConn
+		return nil
+	}, cm.logger)
+
 	if err != nil {
-		return nil, errors.Wrap(errors.ErrConnection, "创建gRPC客户端失败", err)
-	}
-
-	// 等待连接就绪
-	connectCtx, cancel := context.WithTimeout(ctx, cm.config.ConnectTimeout)
-	defer cancel()
-
-	if err := cm.waitForConnection(connectCtx, conn); err != nil {
-		conn.Close()
 		return nil, err
 	}
 
@@ -199,17 +219,17 @@ func (cm *ConnectionManager) GetConnectionStates() map[string]connectivity.State
 // Ping 测试连接
 func (cm *ConnectionManager) Ping(ctx context.Context) (time.Duration, error) {
 	start := time.Now()
-	
+
 	conn, err := cm.GetConnection(ctx)
 	if err != nil {
 		return 0, err
 	}
-	
+
 	// 简单的状态检查作为ping
 	state := conn.GetState()
 	if state != connectivity.Ready && state != connectivity.Idle {
 		return 0, errors.New(errors.ErrConnection, fmt.Sprintf("连接状态异常: %v", state))
 	}
-	
+
 	return time.Since(start), nil
 }

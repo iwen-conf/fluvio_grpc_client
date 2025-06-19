@@ -90,7 +90,7 @@ func (ms *MessageService) applyFilter(message *entities.Message, filter *valueob
 	case valueobjects.FilterTypeKey:
 		targetValue = message.Key
 	case valueobjects.FilterTypeValue:
-		targetValue = message.Value
+		targetValue = string(message.Value) // 转换为字符串
 	case valueobjects.FilterTypeHeader:
 		if filter.Field == "" {
 			return false

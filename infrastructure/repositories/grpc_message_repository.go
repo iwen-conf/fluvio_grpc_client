@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/iwen-conf/fluvio_grpc_client/domain/entities"
@@ -10,6 +11,7 @@ import (
 	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/grpc"
 	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/logging"
 	pb "github.com/iwen-conf/fluvio_grpc_client/proto/fluvio_service"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // GRPCMessageRepository gRPC消息仓储实现
@@ -35,10 +37,16 @@ func (r *GRPCMessageRepository) Produce(ctx context.Context, message *entities.M
 
 	// 转换为protobuf请求
 	req := &pb.ProduceRequest{
-		Topic:   message.Topic,
-		Message: message.Value,
-		Key:     message.Key,
-		Headers: message.Headers,
+		Topic:     message.Topic,
+		Message:   string(message.Value), // 转换为字符串
+		Key:       message.Key,
+		Headers:   message.Headers,
+		MessageId: message.MessageID,
+	}
+
+	// 设置时间戳
+	if !message.Timestamp.IsZero() {
+		req.Timestamp = timestamppb.New(message.Timestamp)
 	}
 
 	// 调用gRPC服务
@@ -50,16 +58,29 @@ func (r *GRPCMessageRepository) Produce(ctx context.Context, message *entities.M
 		return err
 	}
 
+	// 检查响应状态
+	if !resp.GetSuccess() {
+		errMsg := resp.GetError()
+		if errMsg == "" {
+			errMsg = "unknown error"
+		}
+		r.logger.Error("生产消息被服务器拒绝",
+			logging.Field{Key: "error", Value: errMsg},
+			logging.Field{Key: "topic", Value: message.Topic})
+		return fmt.Errorf("produce failed: %s", errMsg)
+	}
+
 	// 更新消息元数据
 	message.ID = resp.GetMessageId()
+	message.MessageID = resp.GetMessageId()
 	// 注意：当前protobuf定义中ProduceReply没有Partition和Offset字段
-	// 这里使用默认值
+	// 这里使用默认值，实际应该从服务器响应中获取
 	message.Partition = 0
 	message.Offset = 0
 
 	r.logger.Info("消息生产成功",
-		logging.Field{Key: "message_id", Value: message.MessageID},
-		logging.Field{Key: "success", Value: resp.GetSuccess()})
+		logging.Field{Key: "message_id", Value: resp.GetMessageId()},
+		logging.Field{Key: "topic", Value: message.Topic})
 
 	return nil
 }
@@ -114,7 +135,7 @@ func (r *GRPCMessageRepository) Consume(ctx context.Context, topic string, parti
 			MessageID: pbMessage.GetMessageId(),
 			Topic:     topic, // 使用请求中的topic
 			Key:       pbMessage.GetKey(),
-			Value:     pbMessage.GetMessage(), // ConsumedMessage中字段名是Message
+			Value:     []byte(pbMessage.GetMessage()), // 转换为字节数组
 			Headers:   pbMessage.GetHeaders(),
 			Partition: pbMessage.GetPartition(),
 			Offset:    pbMessage.GetOffset(),
@@ -174,7 +195,7 @@ func (r *GRPCMessageRepository) matchesFilters(message *entities.Message, filter
 	case "key":
 		return message.Key == filter.Value
 	case "value":
-		return message.Value == filter.Value
+		return string(message.Value) == filter.Value
 	default:
 		return true
 	}
@@ -187,22 +208,159 @@ func (r *GRPCMessageRepository) ConsumeStream(ctx context.Context, topic string,
 		logging.Field{Key: "partition", Value: partition},
 		logging.Field{Key: "offset", Value: offset})
 
-	// 这里应该实现流式消费逻辑
-	// 简化实现，返回一个空的channel
-	ch := make(chan *entities.Message)
-	close(ch)
+	// 创建流式消费请求
+	req := &pb.StreamConsumeRequest{
+		Topic:     topic,
+		Partition: partition,
+		Offset:    offset,
+	}
 
-	return ch, nil
+	// 建立gRPC流
+	stream, err := r.client.StreamConsume(ctx, req)
+	if err != nil {
+		r.logger.Error("建立流式消费失败", logging.Field{Key: "error", Value: err})
+		return nil, fmt.Errorf("failed to create stream: %w", err)
+	}
+
+	// 创建消息通道
+	messageChan := make(chan *entities.Message, 100) // 缓冲通道，支持背压控制
+
+	// 启动goroutine处理流式数据
+	go func() {
+		defer close(messageChan)
+		defer func() {
+			if err := stream.CloseSend(); err != nil {
+				r.logger.Error("关闭流失败", logging.Field{Key: "error", Value: err})
+			}
+		}()
+
+		for {
+			select {
+			case <-ctx.Done():
+				r.logger.Debug("流式消费被取消")
+				return
+			default:
+				// 接收消息
+				pbMessage, err := stream.Recv()
+				if err != nil {
+					if err.Error() == "EOF" {
+						r.logger.Debug("流式消费结束")
+						return
+					}
+					r.logger.Error("接收流式消息失败", logging.Field{Key: "error", Value: err})
+					return
+				}
+
+				// 转换为实体
+				message := &entities.Message{
+					ID:        pbMessage.GetMessageId(),
+					MessageID: pbMessage.GetMessageId(),
+					Topic:     topic,
+					Key:       pbMessage.GetKey(),
+					Value:     []byte(pbMessage.GetMessage()),
+					Headers:   pbMessage.GetHeaders(),
+					Partition: pbMessage.GetPartition(),
+					Offset:    pbMessage.GetOffset(),
+					Timestamp: time.Unix(pbMessage.GetTimestamp(), 0),
+				}
+
+				// 发送到通道（支持背压控制）
+				select {
+				case messageChan <- message:
+					// 消息发送成功
+				case <-ctx.Done():
+					r.logger.Debug("流式消费被取消")
+					return
+				}
+			}
+		}
+	}()
+
+	r.logger.Info("流式消费已启动",
+		logging.Field{Key: "topic", Value: topic},
+		logging.Field{Key: "partition", Value: partition})
+
+	return messageChan, nil
 }
 
 // GetOffset 获取偏移量
 func (r *GRPCMessageRepository) GetOffset(ctx context.Context, topic string, partition int32, consumerGroup string) (int64, error) {
-	// 简化实现
+	r.logger.Debug("获取偏移量",
+		logging.Field{Key: "topic", Value: topic},
+		logging.Field{Key: "partition", Value: partition},
+		logging.Field{Key: "consumer_group", Value: consumerGroup})
+
+	// 注意：当前protobuf定义中没有GetOffset方法
+	// 这里使用DescribeConsumerGroup来获取偏移量信息
+	req := &pb.DescribeConsumerGroupRequest{
+		GroupId: consumerGroup,
+	}
+
+	resp, err := r.client.DescribeConsumerGroup(ctx, req)
+	if err != nil {
+		r.logger.Error("获取消费者组信息失败",
+			logging.Field{Key: "error", Value: err},
+			logging.Field{Key: "group", Value: consumerGroup})
+		return 0, fmt.Errorf("failed to describe consumer group: %w", err)
+	}
+
+	// 从响应中查找对应主题和分区的偏移量
+	for _, offsetInfo := range resp.GetOffsets() {
+		if offsetInfo.GetTopic() == topic && offsetInfo.GetPartition() == partition {
+			offset := offsetInfo.GetCommittedOffset()
+			r.logger.Debug("获取偏移量成功",
+				logging.Field{Key: "offset", Value: offset})
+			return offset, nil
+		}
+	}
+
+	// 如果没有找到，返回0（从头开始消费）
+	r.logger.Debug("未找到偏移量信息，返回0")
 	return 0, nil
 }
 
 // CommitOffset 提交偏移量
 func (r *GRPCMessageRepository) CommitOffset(ctx context.Context, topic string, partition int32, consumerGroup string, offset int64) error {
-	// 简化实现
+	r.logger.Debug("提交偏移量",
+		logging.Field{Key: "topic", Value: topic},
+		logging.Field{Key: "partition", Value: partition},
+		logging.Field{Key: "consumer_group", Value: consumerGroup},
+		logging.Field{Key: "offset", Value: offset})
+
+	// 构建提交偏移量请求
+	req := &pb.CommitOffsetRequest{
+		Topic:     topic,
+		Partition: partition,
+		Group:     consumerGroup,
+		Offset:    offset,
+	}
+
+	// 调用gRPC服务
+	resp, err := r.client.CommitOffset(ctx, req)
+	if err != nil {
+		r.logger.Error("提交偏移量失败",
+			logging.Field{Key: "error", Value: err},
+			logging.Field{Key: "topic", Value: topic},
+			logging.Field{Key: "offset", Value: offset})
+		return fmt.Errorf("failed to commit offset: %w", err)
+	}
+
+	// 检查响应状态
+	if !resp.GetSuccess() {
+		errMsg := resp.GetError()
+		if errMsg == "" {
+			errMsg = "unknown error"
+		}
+		r.logger.Error("偏移量提交被服务器拒绝",
+			logging.Field{Key: "error", Value: errMsg},
+			logging.Field{Key: "topic", Value: topic})
+		return fmt.Errorf("commit offset failed: %s", errMsg)
+	}
+
+	r.logger.Info("偏移量提交成功",
+		logging.Field{Key: "topic", Value: topic},
+		logging.Field{Key: "partition", Value: partition},
+		logging.Field{Key: "offset", Value: offset})
+
 	return nil
 }
