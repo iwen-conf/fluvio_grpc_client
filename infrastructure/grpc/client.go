@@ -33,9 +33,15 @@ type Client interface {
 	CreateSmartModule(ctx context.Context, req *pb.CreateSmartModuleRequest) (*pb.CreateSmartModuleReply, error)
 	DeleteSmartModule(ctx context.Context, req *pb.DeleteSmartModuleRequest) (*pb.DeleteSmartModuleReply, error)
 	DescribeSmartModule(ctx context.Context, req *pb.DescribeSmartModuleRequest) (*pb.DescribeSmartModuleReply, error)
+	UpdateSmartModule(ctx context.Context, req *pb.UpdateSmartModuleRequest) (*pb.UpdateSmartModuleReply, error)
 
-	// 统计信息操作
+	// 高级功能
+	FilteredConsume(ctx context.Context, req *pb.FilteredConsumeRequest) (*pb.FilteredConsumeReply, error)
+	BulkDelete(ctx context.Context, req *pb.BulkDeleteRequest) (*pb.BulkDeleteReply, error)
 	GetTopicStats(ctx context.Context, req *pb.GetTopicStatsRequest) (*pb.GetTopicStatsReply, error)
+	GetStorageStatus(ctx context.Context, req *pb.GetStorageStatusRequest) (*pb.GetStorageStatusReply, error)
+	MigrateStorage(ctx context.Context, req *pb.MigrateStorageRequest) (*pb.MigrateStorageReply, error)
+	GetStorageMetrics(ctx context.Context, req *pb.GetStorageMetricsRequest) (*pb.GetStorageMetricsReply, error)
 
 	// 管理操作（FluvioAdminService）
 	DescribeCluster(ctx context.Context, req *pb.DescribeClusterRequest) (*pb.DescribeClusterReply, error)
@@ -225,6 +231,13 @@ func (c *DefaultClient) DescribeSmartModule(ctx context.Context, req *pb.Describ
 	return c.client.DescribeSmartModule(ctx, req)
 }
 
+func (c *DefaultClient) UpdateSmartModule(ctx context.Context, req *pb.UpdateSmartModuleRequest) (*pb.UpdateSmartModuleReply, error) {
+	if err := c.ensureConnected(); err != nil {
+		return nil, err
+	}
+	return c.client.UpdateSmartModule(ctx, req)
+}
+
 func (c *DefaultClient) StreamConsume(ctx context.Context, req *pb.StreamConsumeRequest) (pb.FluvioService_StreamConsumeClient, error) {
 	if err := c.ensureConnected(); err != nil {
 		return nil, err
@@ -239,13 +252,48 @@ func (c *DefaultClient) HealthCheck(ctx context.Context, req *pb.HealthCheckRequ
 	return c.client.HealthCheck(ctx, req)
 }
 
-// 统计信息操作实现
+// 高级功能实现
+
+func (c *DefaultClient) FilteredConsume(ctx context.Context, req *pb.FilteredConsumeRequest) (*pb.FilteredConsumeReply, error) {
+	if err := c.ensureConnected(); err != nil {
+		return nil, err
+	}
+	return c.client.FilteredConsume(ctx, req)
+}
+
+func (c *DefaultClient) BulkDelete(ctx context.Context, req *pb.BulkDeleteRequest) (*pb.BulkDeleteReply, error) {
+	if err := c.ensureConnected(); err != nil {
+		return nil, err
+	}
+	return c.client.BulkDelete(ctx, req)
+}
 
 func (c *DefaultClient) GetTopicStats(ctx context.Context, req *pb.GetTopicStatsRequest) (*pb.GetTopicStatsReply, error) {
 	if err := c.ensureConnected(); err != nil {
 		return nil, err
 	}
 	return c.client.GetTopicStats(ctx, req)
+}
+
+func (c *DefaultClient) GetStorageStatus(ctx context.Context, req *pb.GetStorageStatusRequest) (*pb.GetStorageStatusReply, error) {
+	if err := c.ensureConnected(); err != nil {
+		return nil, err
+	}
+	return c.client.GetStorageStatus(ctx, req)
+}
+
+func (c *DefaultClient) MigrateStorage(ctx context.Context, req *pb.MigrateStorageRequest) (*pb.MigrateStorageReply, error) {
+	if err := c.ensureConnected(); err != nil {
+		return nil, err
+	}
+	return c.client.MigrateStorage(ctx, req)
+}
+
+func (c *DefaultClient) GetStorageMetrics(ctx context.Context, req *pb.GetStorageMetricsRequest) (*pb.GetStorageMetricsReply, error) {
+	if err := c.ensureConnected(); err != nil {
+		return nil, err
+	}
+	return c.client.GetStorageMetrics(ctx, req)
 }
 
 // 管理操作实现（FluvioAdminService）

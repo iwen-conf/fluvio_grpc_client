@@ -87,7 +87,31 @@ func (m *MockGRPCClient) HealthCheck(ctx context.Context, req *pb.HealthCheckReq
 }
 
 // 新增的方法实现
+func (m *MockGRPCClient) UpdateSmartModule(ctx context.Context, req *pb.UpdateSmartModuleRequest) (*pb.UpdateSmartModuleReply, error) {
+	return nil, nil
+}
+
+func (m *MockGRPCClient) FilteredConsume(ctx context.Context, req *pb.FilteredConsumeRequest) (*pb.FilteredConsumeReply, error) {
+	return nil, nil
+}
+
+func (m *MockGRPCClient) BulkDelete(ctx context.Context, req *pb.BulkDeleteRequest) (*pb.BulkDeleteReply, error) {
+	return nil, nil
+}
+
 func (m *MockGRPCClient) GetTopicStats(ctx context.Context, req *pb.GetTopicStatsRequest) (*pb.GetTopicStatsReply, error) {
+	return nil, nil
+}
+
+func (m *MockGRPCClient) GetStorageStatus(ctx context.Context, req *pb.GetStorageStatusRequest) (*pb.GetStorageStatusReply, error) {
+	return nil, nil
+}
+
+func (m *MockGRPCClient) MigrateStorage(ctx context.Context, req *pb.MigrateStorageRequest) (*pb.MigrateStorageReply, error) {
+	return nil, nil
+}
+
+func (m *MockGRPCClient) GetStorageMetrics(ctx context.Context, req *pb.GetStorageMetricsRequest) (*pb.GetStorageMetricsReply, error) {
 	return nil, nil
 }
 
