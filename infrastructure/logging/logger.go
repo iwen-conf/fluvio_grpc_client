@@ -51,6 +51,7 @@ type Logger interface {
 	Error(msg string, fields ...Field)
 	Fatal(msg string, fields ...Field)
 	SetLevel(level Level)
+	GetLevel() Level
 	WithFields(fields ...Field) Logger
 }
 
@@ -114,6 +115,11 @@ func (l *StandardLogger) SetLevel(level Level) {
 	l.level = level
 }
 
+// GetLevel 获取日志级别
+func (l *StandardLogger) GetLevel() Level {
+	return l.level
+}
+
 // WithFields 添加字段
 func (l *StandardLogger) WithFields(fields ...Field) Logger {
 	newLogger := &StandardLogger{
@@ -121,25 +127,25 @@ func (l *StandardLogger) WithFields(fields ...Field) Logger {
 		level:  l.level,
 		fields: make([]Field, len(l.fields)+len(fields)),
 	}
-	
+
 	copy(newLogger.fields, l.fields)
 	copy(newLogger.fields[len(l.fields):], fields)
-	
+
 	return newLogger
 }
 
 // log 记录日志
 func (l *StandardLogger) log(level Level, msg string, fields ...Field) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	
+
 	// 合并字段
 	allFields := make([]Field, len(l.fields)+len(fields))
 	copy(allFields, l.fields)
 	copy(allFields[len(l.fields):], fields)
-	
+
 	// 构建日志消息
 	logMsg := fmt.Sprintf("[%s] %s: %s", timestamp, level.String(), msg)
-	
+
 	// 添加字段
 	if len(allFields) > 0 {
 		logMsg += " |"
@@ -147,7 +153,7 @@ func (l *StandardLogger) log(level Level, msg string, fields ...Field) {
 			logMsg += fmt.Sprintf(" %s=%v", field.Key, field.Value)
 		}
 	}
-	
+
 	l.logger.Println(logMsg)
 }
 

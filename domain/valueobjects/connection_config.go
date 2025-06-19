@@ -30,6 +30,7 @@ type ConnectionConfig struct {
 	CertFile   string
 	KeyFile    string
 	CAFile     string
+	Insecure   bool // 跳过TLS验证
 }
 
 // NewConnectionConfig 创建默认连接配置

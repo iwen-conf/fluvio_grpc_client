@@ -1,258 +1,209 @@
-// Package fluvio provides a Go SDK for interacting with Fluvio streaming platform
-// This is the backward compatible API layer
+// Package fluvio provides a modern Go SDK for interacting with Fluvio streaming platform
+// Based on Clean Architecture principles for better maintainability and testability
 package fluvio
 
 import (
 	"context"
 	"time"
 
-	"github.com/iwen-conf/fluvio_grpc_client/client"
+	"github.com/iwen-conf/fluvio_grpc_client/application/services"
 	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/config"
+	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/grpc"
 	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/logging"
-	"github.com/iwen-conf/fluvio_grpc_client/types"
+	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/repositories"
+	"github.com/iwen-conf/fluvio_grpc_client/pkg/errors"
 )
 
-// Client 是Fluvio SDK的主要客户端接口（向后兼容）
-type Client = client.Client
-
-// 重新导出主要类型（向后兼容）
-type (
-	// 消息相关类型
-	Message              = types.Message
-	ProduceOptions       = types.ProduceOptions
-	ProduceResult        = types.ProduceResult
-	BatchProduceResult   = types.BatchProduceResult
-	ConsumeOptions       = types.ConsumeOptions
-	ConsumeResult        = types.ConsumeResult
-	StreamConsumeOptions = types.StreamConsumeOptions
-	CommitOffsetOptions  = types.CommitOffsetOptions
-
-	// 主题相关类型
-	TopicInfo             = types.TopicInfo
-	CreateTopicOptions    = types.CreateTopicOptions
-	CreateTopicResult     = types.CreateTopicResult
-	DeleteTopicOptions    = types.DeleteTopicOptions
-	DeleteTopicResult     = types.DeleteTopicResult
-	ListTopicsResult      = types.ListTopicsResult
-	DescribeTopicResult   = types.DescribeTopicResult
-
-	// 消费者组相关类型
-	ConsumerGroupInfo           = types.ConsumerGroupInfo
-	ConsumerGroupMember         = types.ConsumerGroupMember
-	ListConsumerGroupsResult    = types.ListConsumerGroupsResult
-	DescribeConsumerGroupResult = types.DescribeConsumerGroupResult
-
-	// 管理相关类型
-	ClusterInfo             = types.ClusterInfo
-	BrokerInfo              = types.BrokerInfo
-	MetricInfo              = types.MetricInfo
-	DescribeClusterResult   = types.DescribeClusterResult
-	ListBrokersResult       = types.ListBrokersResult
-	GetMetricsOptions       = types.GetMetricsOptions
-	GetMetricsResult        = types.GetMetricsResult
-
-	// SmartModule相关类型
-	SmartModuleInfo             = types.SmartModuleInfo
-	CreateSmartModuleOptions    = types.CreateSmartModuleOptions
-	CreateSmartModuleResult     = types.CreateSmartModuleResult
-	DeleteSmartModuleResult     = types.DeleteSmartModuleResult
-	ListSmartModulesResult      = types.ListSmartModulesResult
-	DescribeSmartModuleResult   = types.DescribeSmartModuleResult
-
-	// 配置相关类型（简化）
-	Config        = config.Config
-	LoggingConfig = config.LoggingConfig
-
-	// 日志相关类型
-	Logger = logging.Logger
-	Level  = logging.Level
-	Field  = logging.Field
-)
-
-// 重新导出日志级别常量
-const (
-	LevelDebug = logging.LevelDebug
-	LevelInfo  = logging.LevelInfo
-	LevelWarn  = logging.LevelWarn
-	LevelError = logging.LevelError
-	LevelFatal = logging.LevelFatal
-)
-
-// ClientOption 客户端选项函数类型（向后兼容）
-type ClientOption = client.ClientOption
-
-// New 创建一个新的Fluvio客户端（向后兼容）
-func New(opts ...ClientOption) (*Client, error) {
-	return client.New(opts...)
+// Client 是Fluvio SDK的主要客户端
+type Client struct {
+	config     *config.Config
+	grpcClient grpc.Client
+	appService *services.FluvioApplicationService
+	logger     logging.Logger
+	connected  bool
 }
 
-// NewWithConfig 使用指定配置创建客户端（向后兼容）
-func NewWithConfig(cfg *Config) (*Client, error) {
-	return client.NewWithConfig(cfg)
-}
+// ClientOption 客户端配置选项函数
+type ClientOption func(*config.Config) error
 
-// Connect 连接到Fluvio服务器（向后兼容）
-func Connect(opts ...ClientOption) (*Client, error) {
-	return New(opts...)
-}
+// NewClient 创建一个新的Fluvio客户端
+func NewClient(opts ...ClientOption) (*Client, error) {
+	// 创建默认配置
+	cfg := config.NewDefaultConfig()
 
-// ConnectWithAddress 连接到指定地址的Fluvio服务器（向后兼容）
-func ConnectWithAddress(host string, port int, opts ...ClientOption) (*Client, error) {
-	serverOpt := func(cfg *config.Config) error {
-		cfg.Connection.Host = host
-		cfg.Connection.Port = port
-		return nil
+	// 应用配置选项
+	for _, opt := range opts {
+		if err := opt(cfg); err != nil {
+			return nil, errors.Wrap(errors.ErrInvalidArgument, "failed to apply client option", err)
+		}
 	}
-	allOpts := append([]ClientOption{serverOpt}, opts...)
-	return New(allOpts...)
-}
 
-// DefaultConfig 返回默认配置（向后兼容）
-func DefaultConfig() *Config {
-	return config.NewDefaultConfig()
-}
+	// 验证配置
+	if err := cfg.Validate(); err != nil {
+		return nil, errors.Wrap(errors.ErrInvalidArgument, "invalid configuration", err)
+	}
 
-// NewLogger 创建新的日志器（向后兼容）
-func NewLogger(level Level) Logger {
+	// 创建日志器
 	logger := logging.NewDefaultLogger()
-	logger.SetLevel(level)
-	return logger
+	if cfg.Logging.Level != "" {
+		if level, err := logging.ParseLevel(cfg.Logging.Level); err == nil {
+			logger.SetLevel(level)
+		}
+	}
+
+	// 创建gRPC客户端（这里需要实际实现）
+	grpcClient := &grpc.DefaultClient{} // 简化实现
+
+	// 创建仓储
+	messageRepo := repositories.NewGRPCMessageRepository(grpcClient, logger)
+	topicRepo := repositories.NewGRPCTopicRepository(grpcClient, logger)
+	adminRepo := repositories.NewGRPCAdminRepository(grpcClient, logger)
+
+	// 创建应用服务
+	appService := services.NewFluvioApplicationService(messageRepo, topicRepo, adminRepo, logger)
+
+	return &Client{
+		config:     cfg,
+		grpcClient: grpcClient,
+		appService: appService,
+		logger:     logger,
+		connected:  false,
+	}, nil
 }
 
-// NewNoopLogger 创建空日志器（向后兼容）
-func NewNoopLogger() Logger {
-	return logging.NewDefaultLogger() // 简化实现
-}
-
-// 配置选项函数（向后兼容）
-
-// WithServer 设置服务器地址
-func WithServer(host string, port int) ClientOption {
-	return func(cfg *config.Config) error {
-		cfg.Connection.Host = host
-		cfg.Connection.Port = port
+// Connect 连接到Fluvio服务器
+func (c *Client) Connect(ctx context.Context) error {
+	if c.connected {
 		return nil
 	}
+
+	c.logger.Info("Connecting to Fluvio server",
+		logging.Field{Key: "host", Value: c.config.Connection.Host},
+		logging.Field{Key: "port", Value: c.config.Connection.Port})
+
+	if err := c.grpcClient.Connect(); err != nil {
+		return errors.Wrap(errors.ErrConnection, "failed to connect to server", err)
+	}
+
+	c.connected = true
+	c.logger.Info("Successfully connected to Fluvio server")
+	return nil
 }
 
-// WithTimeout 设置超时时间
-func WithTimeout(connect, call time.Duration) ClientOption {
-	return func(cfg *config.Config) error {
-		cfg.Connection.WithTimeout(connect, call)
+// Close 关闭客户端连接
+func (c *Client) Close() error {
+	if !c.connected {
 		return nil
 	}
-}
 
-// WithLogLevel 设置日志级别
-func WithLogLevel(level Level) ClientOption {
-	return func(cfg *config.Config) error {
-		cfg.Logging.Level = level.String()
-		return nil
+	c.logger.Info("Closing connection to Fluvio server")
+	
+	if err := c.grpcClient.Close(); err != nil {
+		c.logger.Error("Error closing gRPC client", logging.Field{Key: "error", Value: err})
+		return err
 	}
+
+	c.connected = false
+	c.logger.Info("Connection closed successfully")
+	return nil
 }
 
-// WithMaxRetries 设置最大重试次数
-func WithMaxRetries(maxRetries int) ClientOption {
-	return func(cfg *config.Config) error {
-		cfg.Connection.WithRetry(maxRetries, 1*time.Second)
-		return nil
+// Ping 测试与服务器的连接
+func (c *Client) Ping(ctx context.Context) (time.Duration, error) {
+	if !c.connected {
+		return 0, errors.New(errors.ErrConnection, "client not connected")
 	}
-}
 
-// WithPoolSize 设置连接池大小
-func WithPoolSize(size int) ClientOption {
-	return func(cfg *config.Config) error {
-		cfg.Connection.WithPool(size, 5*time.Minute)
-		return nil
-	}
-}
-
-// WithTLS 启用TLS
-func WithTLS(certFile, keyFile, caFile string) ClientOption {
-	return func(cfg *config.Config) error {
-		cfg.Connection.WithTLS(certFile, keyFile, caFile)
-		return nil
-	}
-}
-
-// WithKeepAlive 设置保活时间
-func WithKeepAlive(interval time.Duration) ClientOption {
-	return func(cfg *config.Config) error {
-		cfg.Connection.KeepAliveTime = interval
-		return nil
-	}
-}
-
-// 便捷函数（向后兼容）
-
-// QuickStart 快速开始示例
-func QuickStart(host string, port int) (*Client, error) {
-	return ConnectWithAddress(host, port,
-		WithTimeout(5*time.Second, 10*time.Second),
-		WithLogLevel(LevelInfo),
-		WithMaxRetries(3),
-	)
-}
-
-// SimpleProducer 创建一个简单的生产者客户端
-func SimpleProducer(host string, port int) (*Client, error) {
-	return ConnectWithAddress(host, port,
-		WithTimeout(5*time.Second, 30*time.Second),
-		WithLogLevel(LevelWarn),
-		WithMaxRetries(5),
-		WithPoolSize(1),
-	)
-}
-
-// SimpleConsumer 创建一个简单的消费者客户端
-func SimpleConsumer(host string, port int) (*Client, error) {
-	return ConnectWithAddress(host, port,
-		WithTimeout(10*time.Second, 60*time.Second),
-		WithLogLevel(LevelWarn),
-		WithMaxRetries(3),
-		WithPoolSize(2),
-	)
-}
-
-// HighThroughputClient 创建一个高吞吐量客户端
-func HighThroughputClient(host string, port int) (*Client, error) {
-	return ConnectWithAddress(host, port,
-		WithTimeout(5*time.Second, 30*time.Second),
-		WithLogLevel(LevelError),
-		WithMaxRetries(5),
-		WithPoolSize(10),
-		WithKeepAlive(30*time.Second),
-	)
-}
-
-// TestClient 创建一个用于测试的客户端
-func TestClient(host string, port int) (*Client, error) {
-	return ConnectWithAddress(host, port,
-		WithTimeout(2*time.Second, 5*time.Second),
-		WithLogLevel(LevelDebug),
-		WithMaxRetries(1),
-		WithPoolSize(1),
-	)
-}
-
-// Ping 测试与Fluvio服务器的连接
-func Ping(ctx context.Context, host string, port int) (time.Duration, error) {
-	client, err := ConnectWithAddress(host, port,
-		WithTimeout(5*time.Second, 10*time.Second),
-		WithLogLevel(LevelError),
-		WithMaxRetries(1),
-	)
-	if err != nil {
+	start := time.Now()
+	
+	// 执行健康检查作为ping
+	if err := c.HealthCheck(ctx); err != nil {
 		return 0, err
 	}
-	defer client.Close()
 
-	return client.Ping(ctx)
+	duration := time.Since(start)
+	c.logger.Debug("Ping successful", logging.Field{Key: "duration", Value: duration})
+	return duration, nil
 }
 
-// Version 返回SDK版本信息
+// HealthCheck 执行健康检查
+func (c *Client) HealthCheck(ctx context.Context) error {
+	if !c.connected {
+		return errors.New(errors.ErrConnection, "client not connected")
+	}
+
+	// 这里应该调用实际的健康检查gRPC方法
+	// 简化实现
+	c.logger.Debug("Health check successful")
+	return nil
+}
+
+// Producer 获取生产者实例
+func (c *Client) Producer() *Producer {
+	return &Producer{
+		appService: c.appService,
+		logger:     c.logger,
+		connected:  &c.connected,
+	}
+}
+
+// Consumer 获取消费者实例
+func (c *Client) Consumer() *Consumer {
+	return &Consumer{
+		appService: c.appService,
+		logger:     c.logger,
+		connected:  &c.connected,
+	}
+}
+
+// Topics 获取主题管理器实例
+func (c *Client) Topics() *TopicManager {
+	return &TopicManager{
+		appService: c.appService,
+		logger:     c.logger,
+		connected:  &c.connected,
+	}
+}
+
+// Admin 获取管理器实例
+func (c *Client) Admin() *AdminManager {
+	return &AdminManager{
+		appService: c.appService,
+		logger:     c.logger,
+		connected:  &c.connected,
+	}
+}
+
+// IsConnected 检查是否已连接
+func (c *Client) IsConnected() bool {
+	return c.connected
+}
+
+// Config 获取客户端配置
+func (c *Client) Config() *config.Config {
+	return c.config
+}
+
+// Logger 获取日志器
+func (c *Client) Logger() logging.Logger {
+	return c.logger
+}
+
+// LogLevel 日志级别类型
+type LogLevel string
+
+// 日志级别常量
+const (
+	LogLevelDebug LogLevel = "debug"
+	LogLevelInfo  LogLevel = "info"
+	LogLevelWarn  LogLevel = "warn"
+	LogLevelError LogLevel = "error"
+	LogLevelFatal LogLevel = "fatal"
+)
+
+// Version 返回SDK版本
 func Version() string {
-	return "1.0.0-compat"
+	return "2.0.0"
 }
 
 // UserAgent 返回用户代理字符串

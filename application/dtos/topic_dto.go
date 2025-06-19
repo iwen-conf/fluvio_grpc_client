@@ -22,15 +22,15 @@ type CreateTopicResponse struct {
 
 // TopicDTO 主题DTO
 type TopicDTO struct {
-	Name              string               `json:"name"`
-	Description       string               `json:"description,omitempty"`
-	Partitions        int32                `json:"partitions"`
-	ReplicationFactor int32                `json:"replication_factor"`
-	RetentionMs       int64                `json:"retention_ms"`
-	Config            map[string]string    `json:"config"`
-	PartitionDetails  []*PartitionInfoDTO  `json:"partition_details,omitempty"`
-	CreatedAt         time.Time            `json:"created_at"`
-	UpdatedAt         time.Time            `json:"updated_at"`
+	Name              string              `json:"name"`
+	Description       string              `json:"description,omitempty"`
+	Partitions        int32               `json:"partitions"`
+	ReplicationFactor int32               `json:"replication_factor"`
+	RetentionMs       int64               `json:"retention_ms"`
+	Config            map[string]string   `json:"config"`
+	PartitionDetails  []*PartitionInfoDTO `json:"partition_details,omitempty"`
+	CreatedAt         time.Time           `json:"created_at"`
+	UpdatedAt         time.Time           `json:"updated_at"`
 }
 
 // PartitionInfoDTO 分区信息DTO
@@ -74,20 +74,20 @@ type TopicStatsResponse struct {
 
 // TopicStatsDTO 主题统计DTO
 type TopicStatsDTO struct {
-	Topic              string                `json:"topic"`
-	TotalMessageCount  int64                 `json:"total_message_count"`
-	TotalSizeBytes     int64                 `json:"total_size_bytes"`
-	PartitionCount     int32                 `json:"partition_count"`
-	Partitions         []*PartitionStatsDTO  `json:"partitions,omitempty"`
+	Topic             string               `json:"topic"`
+	TotalMessageCount int64                `json:"total_message_count"`
+	TotalSizeBytes    int64                `json:"total_size_bytes"`
+	PartitionCount    int32                `json:"partition_count"`
+	Partitions        []*PartitionStatsDTO `json:"partitions,omitempty"`
 }
 
 // PartitionStatsDTO 分区统计DTO
 type PartitionStatsDTO struct {
-	PartitionID      int32 `json:"partition_id"`
-	MessageCount     int64 `json:"message_count"`
-	TotalSizeBytes   int64 `json:"total_size_bytes"`
-	HighWatermark    int64 `json:"high_watermark"`
-	LowWatermark     int64 `json:"low_watermark"`
+	PartitionID    int32 `json:"partition_id"`
+	MessageCount   int64 `json:"message_count"`
+	TotalSizeBytes int64 `json:"total_size_bytes"`
+	HighWatermark  int64 `json:"high_watermark"`
+	LowWatermark   int64 `json:"low_watermark"`
 }
 
 // DeleteTopicRequest 删除主题请求DTO
@@ -99,4 +99,18 @@ type DeleteTopicRequest struct {
 type DeleteTopicResponse struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
+}
+
+// ListTopicsRequest 列出主题请求DTO
+type ListTopicsRequest struct{}
+
+// DescribeTopicRequest 描述主题请求DTO
+type DescribeTopicRequest struct {
+	Name string `json:"name"`
+}
+
+// DescribeTopicResponse 描述主题响应DTO
+type DescribeTopicResponse struct {
+	Topic *TopicDTO `json:"topic"`
+	Error string    `json:"error,omitempty"`
 }

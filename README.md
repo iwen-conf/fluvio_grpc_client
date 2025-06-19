@@ -2,22 +2,25 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.18+-blue.svg)](https://golang.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Architecture](https://img.shields.io/badge/Architecture-Clean%20Architecture-orange.svg)](MIGRATION_GUIDE.md)
+[![Architecture](https://img.shields.io/badge/Architecture-Clean%20Architecture-orange.svg)](docs/ARCHITECTURE.md)
+[![Version](https://img.shields.io/badge/Version-2.0.0-green.svg)](https://github.com/iwen-conf/fluvio_grpc_client)
 
 ## 项目简介
 
-Fluvio Go SDK 是一个基于 Go 语言的软件开发工具包，用于与 Fluvio 消息流处理系统进行交互。该SDK通过 gRPC 协议提供了丰富的功能，包括消息的生产和消费、主题管理、消费者组管理、SmartModule 管理以及集群管理等功能。
+Fluvio Go SDK 是一个现代化的 Go 语言软件开发工具包，用于与 Fluvio 消息流处理系统进行交互。该SDK基于 **Clean Architecture** 设计原则，通过 gRPC 协议提供了丰富的功能，包括消息的生产和消费、主题管理、消费者组管理、SmartModule 管理以及集群管理等功能。
 
-🎯 **v2.0 重大更新**: SDK现在采用 **Clean Architecture** 设计，提供更好的代码组织、测试能力和扩展性，同时保持向后兼容性。
+🚀 **v2.0 全新设计**: 采用现代化的 API 设计，简洁易用，类型安全，高性能。
 
-## ✨ 架构特性
+## ✨ 核心特性
 
-- 🏗️ **Clean Architecture**: 清晰的分层架构，遵循依赖倒置原则
-- 🔄 **向后兼容**: 旧API仍然可用，平滑迁移
-- 🧪 **易于测试**: 每一层都可以独立测试
-- 🔧 **依赖注入**: 支持自定义实现和模拟测试
+- 🎯 **现代化API**: 简洁直观的API设计，类型安全
+- 🏗️ **Clean Architecture**: 清晰的分层架构，遵循SOLID原则
+- 🚀 **高性能**: 优化的连接池、重试机制和资源管理
+- 🧪 **易于测试**: 每一层都可以独立测试，支持依赖注入
 - 📦 **模块化设计**: 清晰的模块边界和职责分离
-- 🚀 **高性能**: 优化的连接池和重试机制
+- 🔧 **函数式配置**: 使用函数式选项模式，配置灵活
+- 🛡️ **错误处理**: 完善的错误类型和处理机制
+- 📊 **可观测性**: 内置日志和指标支持
 
 ## 功能特性
 
@@ -154,14 +157,11 @@ go get github.com/iwen-conf/fluvio_grpc_client
 
 ### 🚀 快速开始
 
-#### 方式1：使用新的Clean Architecture API（推荐）
-
 ```go
 package main
 
 import (
     "context"
-    "fmt"
     "log"
     "time"
 
@@ -169,13 +169,12 @@ import (
 )
 
 func main() {
-    // 🆕 使用新的Clean Architecture API
+    // 创建客户端
     client, err := fluvio.NewClient(
-        fluvio.WithServerAddress("localhost", 50051),
-        fluvio.WithTimeouts(5*time.Second, 30*time.Second),
-        fluvio.WithLogLevelV2("info"),
-        fluvio.WithRetries(3, 1*time.Second),
-        fluvio.WithConnectionPoolV2(5, 5*time.Minute),
+        fluvio.WithAddress("localhost", 50051),
+        fluvio.WithTimeout(30*time.Second),
+        fluvio.WithRetry(3, time.Second),
+        fluvio.WithLogLevel(fluvio.LogLevelInfo),
     )
     if err != nil {
         log.Fatal(err)
@@ -184,85 +183,70 @@ func main() {
 
     ctx := context.Background()
 
-    // 健康检查
-    err = client.HealthCheck(ctx)
-    if err != nil {
-        log.Fatal("健康检查失败:", err)
+    // 连接到服务器
+    if err := client.Connect(ctx); err != nil {
+        log.Fatal(err)
     }
-    fmt.Println("连接成功!")
 
-    // 生产消息
-    result, err := client.Producer().Produce(ctx, "Hello, Clean Architecture!", api.ProduceOptions{
-        Topic:     "my-topic",
-        Key:       "key1",
-        MessageID: "msg-001",
+    // 健康检查
+    if err := client.HealthCheck(ctx); err != nil {
+        log.Fatal(err)
+    }
+
+    // 创建主题
+    if err := client.Topics().Create(ctx, "my-topic", &fluvio.CreateTopicOptions{
+        Partitions:        3,
+        ReplicationFactor: 1,
+    }); err != nil {
+        log.Fatal(err)
+    }
+
+    // 发送消息
+    result, err := client.Producer().Send(ctx, "my-topic", &fluvio.Message{
+        Key:   "user-123",
+        Value: []byte("Hello, Fluvio!"),
         Headers: map[string]string{
-            "source": "go-sdk-v2",
-            "type":   "greeting",
+            "source": "my-app",
         },
     })
     if err != nil {
-        log.Fatal("生产消息失败:", err)
+        log.Fatal(err)
     }
-    fmt.Printf("消息发送成功! ID: %s\n", result.MessageID)
+    log.Printf("Message sent: %s", result.MessageID)
 
-    // 消费消息
-    messages, err := client.Consumer().Consume(ctx, api.ConsumeOptions{
-        Topic:       "my-topic",
+    // 接收消息
+    messages, err := client.Consumer().Receive(ctx, "my-topic", &fluvio.ReceiveOptions{
         Group:       "my-group",
         MaxMessages: 10,
     })
     if err != nil {
-        log.Fatal("消费消息失败:", err)
-    }
-    fmt.Printf("收到 %d 条消息\n", len(messages))
-    for _, msg := range messages {
-        fmt.Printf("消息: [%s] %s (ID: %s)\n", msg.Key, msg.Value, msg.MessageID)
-    }
-}
-```
-
-#### 方式2：使用旧API（向后兼容）
-
-```go
-package main
-
-import (
-    "context"
-    "fmt"
-    "log"
-    "time"
-
-    "github.com/iwen-conf/fluvio_grpc_client"
-)
-
-func main() {
-    // 🔄 旧API仍然可用
-    client, err := fluvio.New(
-        fluvio.WithServer("localhost", 50051),
-        fluvio.WithTimeout(5*time.Second, 10*time.Second),
-        fluvio.WithLogLevel(fluvio.LevelInfo),
-    )
-    if err != nil {
         log.Fatal(err)
     }
-    defer client.Close()
 
-    // 其余代码保持不变...
+    for _, msg := range messages {
+        log.Printf("Received: %s", string(msg.Value))
+    }
 }
 ```
 
-#### 方式3：快速连接
+### 🎯 便捷方法
 
 ```go
-// 生产环境
-client, err := fluvio.ProductionClient("localhost", 50051)
+// 发送字符串消息
+result, err := client.Producer().SendString(ctx, "my-topic", "key", "Hello World")
 
-// 开发环境
-client, err := fluvio.DevelopmentClient("localhost", 50051)
+// 接收单条消息
+message, err := client.Consumer().ReceiveOne(ctx, "my-topic", "my-group")
 
-// 测试环境
-client, err := fluvio.TestClientV2("localhost", 50051)
+// 流式消费
+stream, err := client.Consumer().Stream(ctx, "my-topic", &fluvio.StreamOptions{
+    Group:      "stream-group",
+    BufferSize: 100,
+})
+
+for message := range stream {
+    fmt.Printf("Received: %s\n", string(message.Value))
+}
 ```
 
 ## 🏗️ Clean Architecture 优势
@@ -394,106 +378,102 @@ if err == nil {
 }
 ```
 
-## API 文档
+## 📖 API 文档
 
 ### 客户端创建
 
 ```go
-// 使用默认配置
-client, err := fluvio.New()
-
-// 使用自定义配置
-client, err := fluvio.New(
-    fluvio.WithServer("101.43.173.154", 50051),
-    fluvio.WithTimeout(5*time.Second, 10*time.Second),
-    fluvio.WithLogLevel(fluvio.LevelInfo),
-    fluvio.WithMaxRetries(3),
-    fluvio.WithPoolSize(5),
+// 基本配置
+client, err := fluvio.NewClient(
+    fluvio.WithAddress("localhost", 50051),
+    fluvio.WithTimeout(30*time.Second),
 )
 
-// 使用配置文件
-cfg, err := fluvio.LoadConfigFromFile("config.json")
-client, err := fluvio.NewWithConfig(cfg)
+// 完整配置
+client, err := fluvio.NewClient(
+    fluvio.WithAddress("101.43.173.154", 50051),
+    fluvio.WithTimeouts(5*time.Second, 30*time.Second),
+    fluvio.WithRetry(3, time.Second),
+    fluvio.WithLogLevel(fluvio.LogLevelInfo),
+    fluvio.WithConnectionPool(10, 5*time.Minute),
+    fluvio.WithTLS("cert.pem", "key.pem", "ca.pem"),
+    fluvio.WithKeepAlive(30*time.Second),
+)
 
-// 快速连接
-client, err := fluvio.QuickStart("101.43.173.154", 50051)
+// 不安全连接（开发环境）
+client, err := fluvio.NewClient(
+    fluvio.WithAddress("localhost", 50051),
+    fluvio.WithInsecure(),
+)
 ```
 
 ### 消息生产
 
 ```go
-// 基本生产（支持消息ID和头部）
-result, err := client.Producer().Produce(ctx, "Hello World", fluvio.ProduceOptions{
-    Topic:     "my-topic",
-    Key:       "key1",
-    MessageID: "msg-001", // 🆕 自定义消息ID
+// 发送消息
+result, err := client.Producer().Send(ctx, "my-topic", &fluvio.Message{
+    Key:   "user-123",
+    Value: []byte("Hello World"),
     Headers: map[string]string{
         "source": "go-sdk",
         "type":   "greeting",
     },
 })
 
-// 批量生产
-messages := []fluvio.Message{
-    {Topic: "my-topic", Key: "key1", Value: "message1", MessageID: "batch-001"},
-    {Topic: "my-topic", Key: "key2", Value: "message2", MessageID: "batch-002"},
-}
-batchResult, err := client.Producer().ProduceBatch(ctx, messages)
-
-// 异步生产
-resultChan := client.Producer().ProduceAsync(ctx, "Async message", fluvio.ProduceOptions{
-    Topic: "my-topic",
+// 使用选项发送
+result, err := client.Producer().SendWithOptions(ctx, &fluvio.SendOptions{
+    Topic:   "my-topic",
+    Key:     "key1",
+    Value:   []byte("Hello World"),
+    Headers: map[string]string{"source": "app"},
 })
-result := <-resultChan
+
+// 批量发送
+messages := []*fluvio.Message{
+    {Key: "key1", Value: []byte("message1")},
+    {Key: "key2", Value: []byte("message2")},
+}
+batchResult, err := client.Producer().SendBatch(ctx, "my-topic", messages)
+
+// 便捷方法
+result, err := client.Producer().SendString(ctx, "my-topic", "key", "Hello")
+result, err := client.Producer().SendJSON(ctx, "my-topic", "key", map[string]string{"msg": "hello"})
 ```
 
 ### 消息消费
 
 ```go
 // 基本消费
-messages, err := client.Consumer().Consume(ctx, fluvio.ConsumeOptions{
-    Topic:       "my-topic",
+messages, err := client.Consumer().Receive(ctx, "my-topic", &fluvio.ReceiveOptions{
     Group:       "my-group",
     MaxMessages: 10,
+    Offset:      0,
 })
 
-// 🆕 过滤消费
-result, err := client.Consumer().ConsumeFiltered(ctx, fluvio.FilteredConsumeOptions{
-    Topic: "my-topic",
-    Group: "filter-group",
-    Filters: []fluvio.FilterCondition{
-        {
-            Type:     fluvio.FilterTypeHeader,
-            Field:    "level",
-            Operator: "eq",
-            Value:    "error",
-        },
-    },
-    AndLogic: true,
-})
-
-// 流式消费（增强功能）
-stream, err := client.Consumer().ConsumeStream(ctx, fluvio.StreamConsumeOptions{
-    Topic:        "my-topic",
-    Group:        "my-group",
-    MaxBatchSize: 10,   // 🆕 批次大小控制
-    MaxWaitMs:    1000, // 🆕 等待时间控制
+// 流式消费
+stream, err := client.Consumer().Stream(ctx, "my-topic", &fluvio.StreamOptions{
+    Group:      "my-group",
+    BufferSize: 100,
+    Offset:     0,
 })
 
 for msg := range stream {
-    if msg.Error != nil {
-        log.Printf("Error: %v", msg.Error)
-        continue
+    fmt.Printf("Received: [%s] %s\n", msg.Key, string(msg.Value))
+
+    // 处理消息...
+
+    // 可选：提交偏移量
+    err := client.Consumer().Commit(ctx, "my-topic", "my-group", msg.Offset)
+    if err != nil {
+        log.Printf("Failed to commit offset: %v", err)
     }
-    fmt.Printf("Received: [%s] %s (ID: %s)\n",
-        msg.Message.Key, msg.Message.Value, msg.Message.MessageID)
 }
 
-// 提交偏移量
-err = client.Consumer().CommitOffset(ctx, fluvio.CommitOffsetOptions{
-    Topic:  "my-topic",
-    Group:  "my-group",
-    Offset: 100,
+// 便捷方法
+message, err := client.Consumer().ReceiveOne(ctx, "my-topic", "my-group")
+values, err := client.Consumer().ReceiveString(ctx, "my-topic", &fluvio.ReceiveOptions{
+    Group:       "my-group",
+    MaxMessages: 5,
 })
 ```
 
@@ -501,79 +481,69 @@ err = client.Consumer().CommitOffset(ctx, fluvio.CommitOffsetOptions{
 
 ```go
 // 列出主题
-topics, err := client.Topic().List(ctx)
+topics, err := client.Topics().List(ctx)
 
-// 创建主题（增强配置）
-result, err := client.Topic().Create(ctx, fluvio.CreateTopicOptions{
-    Name:              "new-topic",
+// 创建主题
+err = client.Topics().Create(ctx, "new-topic", &fluvio.CreateTopicOptions{
     Partitions:        3,
-    ReplicationFactor: 1,                    // 🆕 复制因子
-    RetentionMs:       24 * 60 * 60 * 1000, // 🆕 保留时间
-    Config: map[string]string{               // 🆕 自定义配置
+    ReplicationFactor: 1,
+    Config: map[string]string{
         "cleanup.policy": "delete",
         "segment.ms":     "3600000",
     },
 })
 
-// 🆕 获取主题详细信息
-detail, err := client.Topic().DescribeTopicDetail(ctx, "my-topic")
-
-// 🆕 获取主题统计信息
-stats, err := client.Topic().GetTopicStats(ctx, fluvio.GetTopicStatsOptions{
-    Topic:             "my-topic",
-    IncludePartitions: true,
-})
+// 获取主题信息
+info, err := client.Topics().Info(ctx, "my-topic")
+fmt.Printf("Topic: %s, Partitions: %d\n", info.Name, info.Partitions)
 
 // 删除主题
-result, err := client.Topic().Delete(ctx, fluvio.DeleteTopicOptions{
-    Name: "old-topic",
-})
+err = client.Topics().Delete(ctx, "old-topic")
 
 // 检查主题是否存在
-exists, err := client.Topic().Exists(ctx, "my-topic")
+exists, err := client.Topics().Exists(ctx, "my-topic")
 
 // 如果不存在则创建
-result, err := client.Topic().CreateIfNotExists(ctx, fluvio.CreateTopicOptions{
-    Name:       "my-topic",
+created, err := client.Topics().CreateIfNotExists(ctx, "my-topic", &fluvio.CreateTopicOptions{
     Partitions: 1,
 })
+if created {
+    fmt.Println("Topic created")
+} else {
+    fmt.Println("Topic already exists")
+}
 ```
 
 ### 管理功能
 
 ```go
-// 消费组管理
-groups, err := client.Admin().ListConsumerGroups(ctx)
-groupDetail, err := client.Admin().DescribeConsumerGroup(ctx, "my-group")
+// 集群信息
+clusterInfo, err := client.Admin().ClusterInfo(ctx)
+fmt.Printf("Cluster: %s, Status: %s\n", clusterInfo.ID, clusterInfo.Status)
 
-// 🆕 SmartModule管理
-smartModules, err := client.Admin().ListSmartModules(ctx)
-createResult, err := client.Admin().CreateSmartModule(ctx, fluvio.CreateSmartModuleOptions{
-    Spec: &fluvio.SmartModuleSpec{
-        Name:        "my-filter",
-        InputKind:   fluvio.SmartModuleInputStream,
-        OutputKind:  fluvio.SmartModuleOutputStream,
-        Description: "自定义过滤器",
-        Version:     "1.0.0",
-    },
-    WasmCode: wasmBytes,
-})
+// Broker管理
+brokers, err := client.Admin().Brokers(ctx)
+for _, broker := range brokers {
+    fmt.Printf("Broker %d: %s:%d (%s)\n", broker.ID, broker.Host, broker.Port, broker.Status)
+}
 
-// 🆕 存储管理
-status, err := client.Admin().GetStorageStatus(ctx, fluvio.GetStorageStatusOptions{
-    IncludeDetails: true,
-})
-metrics, err := client.Admin().GetStorageMetrics(ctx, fluvio.GetStorageMetricsOptions{
-    IncludeHistory: true,
-})
+// 消费者组管理
+groups, err := client.Admin().ConsumerGroups(ctx)
+for _, group := range groups {
+    fmt.Printf("Group: %s, State: %s\n", group.GroupID, group.State)
+}
 
-// 🆕 批量删除
-bulkResult, err := client.Admin().BulkDelete(ctx, fluvio.BulkDeleteOptions{
-    Topics:         []string{"topic1", "topic2"},
-    ConsumerGroups: []string{"group1", "group2"},
-    SmartModules:   []string{"module1", "module2"},
-    Force:          false,
-})
+// SmartModule管理
+smartModules, err := client.Admin().SmartModules().List(ctx)
+for _, module := range smartModules {
+    fmt.Printf("Module: %s, Version: %s\n", module.Name, module.Version)
+}
+
+// 创建SmartModule
+err = client.Admin().SmartModules().Create(ctx, "my-filter", wasmBytes)
+
+// 删除SmartModule
+err = client.Admin().SmartModules().Delete(ctx, "my-filter")
 ```
 
 或

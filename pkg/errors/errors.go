@@ -9,31 +9,32 @@ type ErrorCode string
 
 const (
 	// 连接相关错误
-	ErrConnection    ErrorCode = "CONNECTION_ERROR"
-	ErrTimeout       ErrorCode = "TIMEOUT_ERROR"
-	ErrNetworkError  ErrorCode = "NETWORK_ERROR"
-	
+	ErrConnection   ErrorCode = "CONNECTION_ERROR"
+	ErrTimeout      ErrorCode = "TIMEOUT_ERROR"
+	ErrNetworkError ErrorCode = "NETWORK_ERROR"
+
 	// 认证相关错误
 	ErrAuthentication ErrorCode = "AUTHENTICATION_ERROR"
 	ErrAuthorization  ErrorCode = "AUTHORIZATION_ERROR"
-	
+
 	// 参数相关错误
 	ErrInvalidArgument ErrorCode = "INVALID_ARGUMENT"
 	ErrMissingArgument ErrorCode = "MISSING_ARGUMENT"
-	
+
 	// 资源相关错误
-	ErrNotFound       ErrorCode = "NOT_FOUND"
-	ErrAlreadyExists  ErrorCode = "ALREADY_EXISTS"
-	ErrResourceLimit  ErrorCode = "RESOURCE_LIMIT"
-	
+	ErrNotFound      ErrorCode = "NOT_FOUND"
+	ErrAlreadyExists ErrorCode = "ALREADY_EXISTS"
+	ErrResourceLimit ErrorCode = "RESOURCE_LIMIT"
+
 	// 操作相关错误
-	ErrInternal       ErrorCode = "INTERNAL_ERROR"
-	ErrUnavailable    ErrorCode = "UNAVAILABLE"
-	ErrCancelled      ErrorCode = "CANCELLED"
-	
+	ErrInternal    ErrorCode = "INTERNAL_ERROR"
+	ErrUnavailable ErrorCode = "UNAVAILABLE"
+	ErrCancelled   ErrorCode = "CANCELLED"
+	ErrOperation   ErrorCode = "OPERATION_ERROR"
+
 	// 业务相关错误
-	ErrValidation     ErrorCode = "VALIDATION_ERROR"
-	ErrBusinessLogic  ErrorCode = "BUSINESS_LOGIC_ERROR"
+	ErrValidation    ErrorCode = "VALIDATION_ERROR"
+	ErrBusinessLogic ErrorCode = "BUSINESS_LOGIC_ERROR"
 )
 
 // FluvioError Fluvio错误类型
