@@ -12,6 +12,7 @@ import (
 	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/logging"
 	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/repositories"
 	"github.com/iwen-conf/fluvio_grpc_client/pkg/errors"
+	pb "github.com/iwen-conf/fluvio_grpc_client/proto/fluvio_service"
 )
 
 // Client 是Fluvio SDK的主要客户端
@@ -135,8 +136,19 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 		return errors.New(errors.ErrConnection, "client not connected")
 	}
 
-	// 这里应该调用实际的健康检查gRPC方法
-	// 简化实现
+	// 调用真实的健康检查gRPC方法
+	req := &pb.HealthCheckRequest{}
+	resp, err := c.grpcClient.HealthCheck(ctx, req)
+	if err != nil {
+		c.logger.Error("Health check failed", logging.Field{Key: "error", Value: err})
+		return errors.Wrap(errors.ErrConnection, "health check failed", err)
+	}
+
+	if !resp.GetOk() {
+		c.logger.Warn("Health check returned not ok", logging.Field{Key: "message", Value: resp.GetMessage()})
+		return errors.New(errors.ErrConnection, "server health check failed: "+resp.GetMessage())
+	}
+
 	c.logger.Debug("Health check successful")
 	return nil
 }

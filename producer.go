@@ -2,6 +2,7 @@ package fluvio
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/iwen-conf/fluvio_grpc_client/application/dtos"
@@ -151,11 +152,15 @@ func (p *Producer) SendString(ctx context.Context, topic, key, value string) (*S
 
 // SendJSON 发送JSON消息（便捷方法）
 func (p *Producer) SendJSON(ctx context.Context, topic, key string, value interface{}) (*SendResult, error) {
-	// 这里应该序列化JSON
-	// 简化实现
+	// 序列化JSON
+	jsonBytes, err := json.Marshal(value)
+	if err != nil {
+		return nil, errors.Wrap(errors.ErrInvalidArgument, "failed to marshal JSON", err)
+	}
+
 	message := &Message{
 		Key:   key,
-		Value: []byte("{}"), // 简化实现
+		Value: jsonBytes,
 		Headers: map[string]string{
 			"content-type": "application/json",
 		},

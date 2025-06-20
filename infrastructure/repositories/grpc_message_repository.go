@@ -195,11 +195,45 @@ func (r *GRPCMessageRepository) ConsumeFiltered(ctx context.Context, topic strin
 		Build()
 	r.handler.LogDebugOperation("过滤消费消息", context)
 
-	// 简化实现：如果服务端不支持过滤，直接调用普通消费
-	// 在实际实现中，应该调用服务端的过滤API
-	messages, err := r.Consume(ctx, topic, 0, 0, maxMessages)
+	// 调用真实的过滤消费gRPC API
+	// 构建过滤条件
+	pbFilters := make([]*pb.FilterCondition, len(filters))
+	for i, filter := range filters {
+		pbFilters[i] = &pb.FilterCondition{
+			Field:    filter.Field,
+			Operator: string(filter.Operator), // 转换为字符串
+			Value:    filter.Value,
+		}
+	}
+
+	// 构建过滤消费请求
+	req := &pb.FilteredConsumeRequest{
+		Topic:       topic,
+		Filters:     pbFilters,
+		MaxMessages: int32(maxMessages),
+	}
+
+	// 调用gRPC服务
+	resp, err := r.client.FilteredConsume(ctx, req)
 	if err != nil {
-		return nil, err
+		r.logger.Error("过滤消费失败", logging.Field{Key: "error", Value: err})
+		return nil, fmt.Errorf("failed to consume filtered messages: %w", err)
+	}
+
+	// 转换响应为实体
+	messages := make([]*entities.Message, len(resp.GetMessages()))
+	for i, pbMessage := range resp.GetMessages() {
+		messages[i] = &entities.Message{
+			ID:        pbMessage.GetMessageId(),
+			MessageID: pbMessage.GetMessageId(),
+			Topic:     topic,
+			Key:       pbMessage.GetKey(),
+			Value:     []byte(pbMessage.GetMessage()),
+			Headers:   pbMessage.GetHeaders(),
+			Partition: pbMessage.GetPartition(),
+			Offset:    pbMessage.GetOffset(),
+			Timestamp: time.Unix(pbMessage.GetTimestamp(), 0),
+		}
 	}
 
 	// 记录成功日志

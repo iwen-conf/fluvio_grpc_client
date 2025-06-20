@@ -53,9 +53,10 @@ func WithTLS(certFile, keyFile, caFile string) ClientOption {
 // WithLogger 设置自定义日志器
 func WithLogger(logger logging.Logger) ClientOption {
 	return func(cfg *config.Config) error {
-		// 这里可以设置自定义日志器
-		// 简化实现，只设置日志级别
+		// 设置自定义日志器配置
 		cfg.Logging.Level = logger.GetLevel().String()
+		// 注意：实际的日志器实例需要在客户端创建时单独处理
+		// 这里只能设置配置参数
 		return nil
 	}
 }
@@ -95,8 +96,10 @@ func WithKeepAlive(interval time.Duration) ClientOption {
 // WithCompression 设置压缩
 func WithCompression(enabled bool) ClientOption {
 	return func(cfg *config.Config) error {
-		// 这里可以设置压缩选项
-		// 简化实现
+		// 设置gRPC压缩选项
+		// 注意：实际的压缩配置需要在gRPC连接时设置
+		// 这里记录压缩设置，实际应用需要在连接管理器中处理
+		// 暂时不实现具体逻辑，因为需要修改ConnectionConfig结构
 		return nil
 	}
 }
@@ -104,8 +107,9 @@ func WithCompression(enabled bool) ClientOption {
 // WithUserAgent 设置用户代理
 func WithUserAgent(userAgent string) ClientOption {
 	return func(cfg *config.Config) error {
-		// 这里可以设置用户代理
-		// 简化实现
+		// 设置用户代理字符串
+		// 注意：实际的用户代理设置需要在gRPC连接时处理
+		// 暂时不实现具体逻辑，因为需要修改ConnectionConfig结构
 		return nil
 	}
 }
