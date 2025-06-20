@@ -132,24 +132,48 @@ func (c *Client) Ping(ctx context.Context) (time.Duration, error) {
 
 // HealthCheck 执行健康检查
 func (c *Client) HealthCheck(ctx context.Context) error {
+	return c.HealthCheckDetailed(ctx, false)
+}
+
+// HealthCheckDetailed 执行详细健康检查
+func (c *Client) HealthCheckDetailed(ctx context.Context, detailed bool) error {
 	if !c.connected {
 		return errors.New(errors.ErrConnection, "client not connected")
 	}
 
-	// 调用真实的健康检查gRPC方法
-	req := &pb.HealthCheckRequest{}
+	// 调用健康检查gRPC方法
+	req := &pb.HealthCheckRequest{
+		Detailed: detailed,
+	}
 	resp, err := c.grpcClient.HealthCheck(ctx, req)
 	if err != nil {
 		c.logger.Error("Health check failed", logging.Field{Key: "error", Value: err})
 		return errors.Wrap(errors.ErrConnection, "health check failed", err)
 	}
 
-	if !resp.GetOk() {
-		c.logger.Warn("Health check returned not ok", logging.Field{Key: "message", Value: resp.GetMessage()})
+	// 检查健康状态
+	if resp.GetStatus() != pb.HealthStatus_HEALTHY {
+		c.logger.Warn("Health check returned unhealthy status", 
+			logging.Field{Key: "status", Value: resp.GetStatus().String()},
+			logging.Field{Key: "message", Value: resp.GetMessage()})
+		
+		// 如果是详细检查，记录组件状态
+		if detailed && len(resp.GetComponents()) > 0 {
+			for _, comp := range resp.GetComponents() {
+				c.logger.Info("Component health",
+					logging.Field{Key: "component", Value: comp.GetName()},
+					logging.Field{Key: "status", Value: comp.GetStatus().String()},
+					logging.Field{Key: "message", Value: comp.GetMessage()},
+					logging.Field{Key: "response_time_ms", Value: comp.GetResponseTimeMs()})
+			}
+		}
+		
 		return errors.New(errors.ErrConnection, "server health check failed: "+resp.GetMessage())
 	}
 
-	c.logger.Debug("Health check successful")
+	c.logger.Debug("Health check successful",
+		logging.Field{Key: "status", Value: resp.GetStatus().String()},
+		logging.Field{Key: "timestamp", Value: resp.GetTimestamp()})
 	return nil
 }
 
