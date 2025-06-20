@@ -115,6 +115,56 @@ func (s *FluvioApplicationService) ConsumeMessage(ctx context.Context, req *dtos
 	}, nil
 }
 
+// CommitOffset 提交偏移量
+func (s *FluvioApplicationService) CommitOffset(ctx context.Context, topic string, partition int32, group string, offset int64) error {
+	s.logger.Debug("Committing offset",
+		logging.Field{Key: "topic", Value: topic},
+		logging.Field{Key: "partition", Value: partition},
+		logging.Field{Key: "group", Value: group},
+		logging.Field{Key: "offset", Value: offset})
+
+	// 调用仓储层进行实际的偏移量提交
+	err := s.messageRepo.CommitOffset(ctx, topic, partition, group, offset)
+	if err != nil {
+		s.logger.Error("Failed to commit offset",
+			logging.Field{Key: "error", Value: err},
+			logging.Field{Key: "topic", Value: topic},
+			logging.Field{Key: "group", Value: group})
+		return err
+	}
+
+	s.logger.Info("Offset committed successfully",
+		logging.Field{Key: "topic", Value: topic},
+		logging.Field{Key: "partition", Value: partition},
+		logging.Field{Key: "group", Value: group},
+		logging.Field{Key: "offset", Value: offset})
+
+	return nil
+}
+
+// StreamConsume 流式消费消息
+func (s *FluvioApplicationService) StreamConsume(ctx context.Context, topic string, partition int32, offset int64) (<-chan *entities.Message, error) {
+	s.logger.Debug("Starting stream consumption",
+		logging.Field{Key: "topic", Value: topic},
+		logging.Field{Key: "partition", Value: partition},
+		logging.Field{Key: "offset", Value: offset})
+
+	// 调用仓储层进行实际的流式消费
+	messageChan, err := s.messageRepo.ConsumeStream(ctx, topic, partition, offset)
+	if err != nil {
+		s.logger.Error("Failed to start stream consumption",
+			logging.Field{Key: "error", Value: err},
+			logging.Field{Key: "topic", Value: topic})
+		return nil, err
+	}
+
+	s.logger.Info("Stream consumption started successfully",
+		logging.Field{Key: "topic", Value: topic},
+		logging.Field{Key: "partition", Value: partition})
+
+	return messageChan, nil
+}
+
 // CreateTopic 创建主题
 func (s *FluvioApplicationService) CreateTopic(ctx context.Context, req *dtos.CreateTopicRequest) (*dtos.CreateTopicResponse, error) {
 	return s.topicRepo.CreateTopic(ctx, req)

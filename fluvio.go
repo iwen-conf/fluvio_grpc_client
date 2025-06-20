@@ -220,8 +220,3 @@ const (
 func Version() string {
 	return "2.0.0"
 }
-
-// UserAgent 返回用户代理字符串
-func UserAgent() string {
-	return "fluvio-go-sdk/" + Version()
-}

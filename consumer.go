@@ -114,6 +114,15 @@ func (c *Consumer) Stream(ctx context.Context, topic string, opts *StreamOptions
 	messageChan := make(chan *ConsumedMessage, opts.BufferSize)
 
 	// 启动后台goroutine进行流式消费
+	// 调用真实的流式消费gRPC API
+	// 注意：这里使用partition 0作为默认值，实际应用中可能需要支持多分区
+	appMessageChan, err := c.appService.StreamConsume(ctx, topic, 0, opts.Offset)
+	if err != nil {
+		c.logger.Error("Failed to start stream consumption", logging.Field{Key: "error", Value: err})
+		return nil, err
+	}
+
+	// 启动goroutine转换消息格式
 	go func() {
 		defer close(messageChan)
 
@@ -122,32 +131,31 @@ func (c *Consumer) Stream(ctx context.Context, topic string, opts *StreamOptions
 			case <-ctx.Done():
 				c.logger.Debug("Stream consumption cancelled")
 				return
-			default:
-				// 这里应该实现实际的流式消费
-				// 简化实现：定期拉取消息
-				receiveOpts := &ReceiveOptions{
-					Group:       opts.Group,
-					Offset:      opts.Offset,
-					MaxMessages: 10,
+			case entityMsg, ok := <-appMessageChan:
+				if !ok {
+					c.logger.Debug("Stream consumption ended")
+					return
 				}
 
-				messages, err := c.Receive(ctx, topic, receiveOpts)
-				if err != nil {
-					c.logger.Error("Error in stream consumption", logging.Field{Key: "error", Value: err})
-					time.Sleep(time.Second)
-					continue
+				// 转换为Consumer API的消息格式
+				consumedMsg := &ConsumedMessage{
+					Message: &Message{
+						Key:     entityMsg.Key,
+						Value:   entityMsg.Value,
+						Headers: entityMsg.Headers,
+					},
+					Topic:     entityMsg.Topic,
+					Partition: entityMsg.Partition,
+					Offset:    entityMsg.Offset,
+					Timestamp: entityMsg.Timestamp,
 				}
 
-				for _, msg := range messages {
-					select {
-					case messageChan <- msg:
-					case <-ctx.Done():
-						return
-					}
-				}
-
-				if len(messages) == 0 {
-					time.Sleep(100 * time.Millisecond)
+				select {
+				case messageChan <- consumedMsg:
+					// 消息发送成功
+				case <-ctx.Done():
+					c.logger.Debug("Stream consumption cancelled")
+					return
 				}
 			}
 		}
@@ -169,12 +177,15 @@ func (c *Consumer) Commit(ctx context.Context, topic string, group string, offse
 
 	// 调用真实的提交偏移量方法
 	// 注意：这里使用partition 0作为默认值，实际应用中可能需要支持多分区
-	// 由于应用服务层没有CommitOffset方法，我们需要添加一个
-	// 暂时记录这个需要改进的地方
-	c.logger.Warn("CommitOffset not implemented in application service, this is a TODO item",
-		logging.Field{Key: "topic", Value: topic},
-		logging.Field{Key: "group", Value: group},
-		logging.Field{Key: "offset", Value: offset})
+	err := c.appService.CommitOffset(ctx, topic, 0, group, offset)
+	if err != nil {
+		c.logger.Error("Failed to commit offset",
+			logging.Field{Key: "topic", Value: topic},
+			logging.Field{Key: "group", Value: group},
+			logging.Field{Key: "offset", Value: offset},
+			logging.Field{Key: "error", Value: err})
+		return err
+	}
 
 	c.logger.Info("Offset committed successfully",
 		logging.Field{Key: "topic", Value: topic},

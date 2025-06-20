@@ -92,24 +92,3 @@ func WithKeepAlive(interval time.Duration) ClientOption {
 		return nil
 	}
 }
-
-// WithCompression 设置压缩
-func WithCompression(enabled bool) ClientOption {
-	return func(cfg *config.Config) error {
-		// 设置gRPC压缩选项
-		// 注意：实际的压缩配置需要在gRPC连接时设置
-		// 这里记录压缩设置，实际应用需要在连接管理器中处理
-		// 暂时不实现具体逻辑，因为需要修改ConnectionConfig结构
-		return nil
-	}
-}
-
-// WithUserAgent 设置用户代理
-func WithUserAgent(userAgent string) ClientOption {
-	return func(cfg *config.Config) error {
-		// 设置用户代理字符串
-		// 注意：实际的用户代理设置需要在gRPC连接时处理
-		// 暂时不实现具体逻辑，因为需要修改ConnectionConfig结构
-		return nil
-	}
-}
