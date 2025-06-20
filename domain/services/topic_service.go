@@ -3,7 +3,8 @@ package services
 import (
 	"fmt"
 	"regexp"
-	
+	"strconv"
+
 	"github.com/iwen-conf/fluvio_grpc_client/domain/entities"
 )
 
@@ -20,23 +21,23 @@ func (ts *TopicService) ValidateTopicName(name string) error {
 	if name == "" {
 		return fmt.Errorf("topic name cannot be empty")
 	}
-	
+
 	// 主题名称长度限制
 	if len(name) > 249 {
 		return fmt.Errorf("topic name too long: %d characters (max 249)", len(name))
 	}
-	
+
 	// 主题名称格式验证（字母、数字、下划线、连字符、点）
 	validName := regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 	if !validName.MatchString(name) {
 		return fmt.Errorf("invalid topic name format: %s", name)
 	}
-	
+
 	// 不能以点开头或结尾
 	if name[0] == '.' || name[len(name)-1] == '.' {
 		return fmt.Errorf("topic name cannot start or end with dot: %s", name)
 	}
-	
+
 	// 保留名称检查
 	reservedNames := []string{"__consumer_offsets", "__transaction_state"}
 	for _, reserved := range reservedNames {
@@ -44,7 +45,7 @@ func (ts *TopicService) ValidateTopicName(name string) error {
 			return fmt.Errorf("topic name is reserved: %s", name)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -53,26 +54,26 @@ func (ts *TopicService) ValidateTopicConfig(topic *entities.Topic) error {
 	if !topic.IsValid() {
 		return fmt.Errorf("invalid topic configuration")
 	}
-	
+
 	// 验证分区数
 	if topic.Partitions <= 0 {
 		return fmt.Errorf("partitions must be greater than 0")
 	}
-	
+
 	if topic.Partitions > 1000 {
 		return fmt.Errorf("too many partitions: %d (max 1000)", topic.Partitions)
 	}
-	
+
 	// 验证复制因子
 	if topic.ReplicationFactor < 0 {
 		return fmt.Errorf("replication factor cannot be negative")
 	}
-	
+
 	// 验证保留时间
 	if topic.RetentionMs < 0 {
 		return fmt.Errorf("retention time cannot be negative")
 	}
-	
+
 	// 验证配置项
 	return ts.validateTopicConfigItems(topic.Config)
 }
@@ -80,13 +81,13 @@ func (ts *TopicService) ValidateTopicConfig(topic *entities.Topic) error {
 // validateTopicConfigItems 验证配置项
 func (ts *TopicService) validateTopicConfigItems(config map[string]string) error {
 	validConfigs := map[string]func(string) error{
-		"cleanup.policy":     ts.validateCleanupPolicy,
-		"compression.type":   ts.validateCompressionType,
+		"cleanup.policy":      ts.validateCleanupPolicy,
+		"compression.type":    ts.validateCompressionType,
 		"delete.retention.ms": ts.validateDeleteRetention,
-		"segment.ms":         ts.validateSegmentMs,
-		"max.message.bytes":  ts.validateMaxMessageBytes,
+		"segment.ms":          ts.validateSegmentMs,
+		"max.message.bytes":   ts.validateMaxMessageBytes,
 	}
-	
+
 	for key, value := range config {
 		if validator, exists := validConfigs[key]; exists {
 			if err := validator(value); err != nil {
@@ -95,7 +96,7 @@ func (ts *TopicService) validateTopicConfigItems(config map[string]string) error
 		}
 		// 未知配置项会被忽略或传递给服务器验证
 	}
-	
+
 	return nil
 }
 
@@ -123,11 +124,28 @@ func (ts *TopicService) validateCompressionType(value string) error {
 
 // validateDeleteRetention 验证删除保留时间
 func (ts *TopicService) validateDeleteRetention(value string) error {
-	// 这里应该解析数值并验证范围
-	// 简化实现，实际应该解析为数字
 	if value == "" {
 		return fmt.Errorf("delete retention cannot be empty")
 	}
+
+	// 解析数值并验证范围
+	retentionMs, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return fmt.Errorf("delete retention must be a valid number: %v", err)
+	}
+
+	// 验证范围：最小1分钟，最大30天
+	const minRetentionMs = 60 * 1000                // 1分钟
+	const maxRetentionMs = 30 * 24 * 60 * 60 * 1000 // 30天
+
+	if retentionMs < minRetentionMs {
+		return fmt.Errorf("delete retention must be at least %d ms (1 minute)", minRetentionMs)
+	}
+
+	if retentionMs > maxRetentionMs {
+		return fmt.Errorf("delete retention must be at most %d ms (30 days)", maxRetentionMs)
+	}
+
 	return nil
 }
 
@@ -151,23 +169,23 @@ func (ts *TopicService) validateMaxMessageBytes(value string) error {
 func (ts *TopicService) CalculateOptimalPartitions(expectedThroughput, targetLatency int64) int32 {
 	// 简化的分区计算逻辑
 	// 实际实现应该考虑更多因素：消息大小、消费者数量、硬件性能等
-	
+
 	basePartitions := int32(1)
-	
+
 	// 根据吞吐量调整
 	if expectedThroughput > 1000 {
 		basePartitions = int32(expectedThroughput / 1000)
 	}
-	
+
 	// 根据延迟要求调整
 	if targetLatency < 100 {
 		basePartitions *= 2
 	}
-	
+
 	// 限制最大分区数
 	if basePartitions > 100 {
 		basePartitions = 100
 	}
-	
+
 	return basePartitions
 }
