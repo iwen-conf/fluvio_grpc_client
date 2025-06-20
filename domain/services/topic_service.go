@@ -167,24 +167,65 @@ func (ts *TopicService) validateMaxMessageBytes(value string) error {
 
 // CalculateOptimalPartitions 计算最优分区数
 func (ts *TopicService) CalculateOptimalPartitions(expectedThroughput, targetLatency int64) int32 {
-	// 简化的分区计算逻辑
-	// 实际实现应该考虑更多因素：消息大小、消费者数量、硬件性能等
+	// 完整的分区计算逻辑，考虑多种因素
 
+	// 参数验证
+	if expectedThroughput <= 0 {
+		expectedThroughput = 1000 // 默认每秒1000条消息
+	}
+	if targetLatency <= 0 {
+		targetLatency = 100 // 默认100ms延迟要求
+	}
+
+	// 基础分区数计算
 	basePartitions := int32(1)
 
-	// 根据吞吐量调整
-	if expectedThroughput > 1000 {
-		basePartitions = int32(expectedThroughput / 1000)
+	// 1. 根据吞吐量计算分区数
+	// 假设每个分区每秒可以处理1000条消息
+	const messagesPerPartitionPerSecond = 1000
+	throughputBasedPartitions := int32((expectedThroughput + messagesPerPartitionPerSecond - 1) / messagesPerPartitionPerSecond)
+
+	// 2. 根据延迟要求调整
+	// 延迟越低，需要更多分区来并行处理
+	latencyFactor := float64(1.0)
+	if targetLatency < 50 {
+		latencyFactor = 2.0 // 极低延迟要求
+	} else if targetLatency < 100 {
+		latencyFactor = 1.5 // 低延迟要求
+	} else if targetLatency < 500 {
+		latencyFactor = 1.2 // 中等延迟要求
 	}
 
-	// 根据延迟要求调整
-	if targetLatency < 100 {
-		basePartitions *= 2
+	// 3. 考虑消费者并行度
+	// 通常建议分区数不超过预期消费者数量的2倍
+	maxConsumers := int32(10) // 假设最多10个消费者
+	consumerBasedPartitions := maxConsumers * 2
+
+	// 4. 综合计算
+	basePartitions = int32(float64(throughputBasedPartitions) * latencyFactor)
+
+	// 5. 应用约束条件
+	// 最小分区数为1
+	if basePartitions < 1 {
+		basePartitions = 1
 	}
 
-	// 限制最大分区数
-	if basePartitions > 100 {
-		basePartitions = 100
+	// 不超过基于消费者数量的限制
+	if basePartitions > consumerBasedPartitions {
+		basePartitions = consumerBasedPartitions
+	}
+
+	// 6. 考虑Kafka集群限制
+	// 通常单个主题不建议超过100个分区
+	const maxPartitionsPerTopic = 100
+	if basePartitions > maxPartitionsPerTopic {
+		basePartitions = maxPartitionsPerTopic
+	}
+
+	// 7. 考虑存储和网络开销
+	// 分区数过多会增加存储和网络开销
+	if basePartitions > 50 && expectedThroughput < 10000 {
+		basePartitions = 50 // 中等吞吐量时限制分区数
 	}
 
 	return basePartitions

@@ -28,6 +28,7 @@ type ReceiveOptions struct {
 // StreamOptions 流式选项
 type StreamOptions struct {
 	Group      string        `json:"group,omitempty"`
+	Partition  *int32        `json:"partition,omitempty"` // 支持指定分区，nil表示使用默认分区0
 	Offset     int64         `json:"offset,omitempty"`
 	BufferSize int           `json:"buffer_size,omitempty"`
 	Timeout    time.Duration `json:"timeout,omitempty"`
@@ -115,8 +116,13 @@ func (c *Consumer) Stream(ctx context.Context, topic string, opts *StreamOptions
 
 	// 启动后台goroutine进行流式消费
 	// 调用真实的流式消费gRPC API
-	// 注意：这里使用partition 0作为默认值，实际应用中可能需要支持多分区
-	appMessageChan, err := c.appService.StreamConsume(ctx, topic, 0, opts.Offset)
+	// 支持指定分区，如果未指定则使用默认分区0
+	partition := int32(0)
+	if opts.Partition != nil {
+		partition = *opts.Partition
+	}
+
+	appMessageChan, err := c.appService.StreamConsume(ctx, topic, partition, opts.Offset)
 	if err != nil {
 		c.logger.Error("Failed to start stream consumption", logging.Field{Key: "error", Value: err})
 		return nil, err
@@ -166,6 +172,11 @@ func (c *Consumer) Stream(ctx context.Context, topic string, opts *StreamOptions
 
 // Commit 提交偏移量
 func (c *Consumer) Commit(ctx context.Context, topic string, group string, offset int64) error {
+	return c.CommitPartition(ctx, topic, group, 0, offset)
+}
+
+// CommitPartition 提交指定分区的偏移量
+func (c *Consumer) CommitPartition(ctx context.Context, topic string, group string, partition int32, offset int64) error {
 	if !*c.connected {
 		return errors.New(errors.ErrConnection, "client not connected")
 	}
@@ -173,11 +184,11 @@ func (c *Consumer) Commit(ctx context.Context, topic string, group string, offse
 	c.logger.Debug("Committing offset",
 		logging.Field{Key: "topic", Value: topic},
 		logging.Field{Key: "group", Value: group},
+		logging.Field{Key: "partition", Value: partition},
 		logging.Field{Key: "offset", Value: offset})
 
-	// 调用真实的提交偏移量方法
-	// 注意：这里使用partition 0作为默认值，实际应用中可能需要支持多分区
-	err := c.appService.CommitOffset(ctx, topic, 0, group, offset)
+	// 调用真实的提交偏移量方法，支持指定分区
+	err := c.appService.CommitOffset(ctx, topic, partition, group, offset)
 	if err != nil {
 		c.logger.Error("Failed to commit offset",
 			logging.Field{Key: "topic", Value: topic},

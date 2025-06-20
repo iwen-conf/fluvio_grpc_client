@@ -66,10 +66,19 @@ func (r *GRPCMessageRepository) Produce(ctx context.Context, message *entities.M
 	// 更新消息元数据
 	message.ID = resp.GetMessageId()
 	message.MessageID = resp.GetMessageId()
-	// 注意：当前protobuf定义中ProduceReply没有Partition和Offset字段
-	// 这里使用默认值，实际应该从服务器响应中获取
-	message.Partition = 0
-	message.Offset = 0
+
+	// 处理分区和偏移量信息
+	// 当前protobuf定义中ProduceReply没有Partition和Offset字段
+	// 在实际生产环境中，这些信息应该从服务器响应中获取
+	// 这里使用合理的默认值，并记录日志说明情况
+	message.Partition = 0 // 默认分区0
+	message.Offset = 0    // 默认偏移量0
+
+	// 记录protobuf限制的调试信息
+	r.logger.Debug("使用默认分区和偏移量值（protobuf定义限制）",
+		logging.Field{Key: "message_id", Value: message.MessageID},
+		logging.Field{Key: "partition", Value: message.Partition},
+		logging.Field{Key: "offset", Value: message.Offset})
 
 	// 记录成功日志
 	successContext := utils.NewContextBuilder().
