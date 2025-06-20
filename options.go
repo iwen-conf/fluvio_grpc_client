@@ -1,6 +1,7 @@
 package fluvio
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iwen-conf/fluvio_grpc_client/infrastructure/config"
@@ -53,10 +54,20 @@ func WithTLS(certFile, keyFile, caFile string) ClientOption {
 // WithLogger 设置自定义日志器
 func WithLogger(logger logging.Logger) ClientOption {
 	return func(cfg *config.Config) error {
-		// 设置自定义日志器配置
+		if logger == nil {
+			return fmt.Errorf("logger cannot be nil")
+		}
+
+		// 设置日志器配置
 		cfg.Logging.Level = logger.GetLevel().String()
-		// 注意：实际的日志器实例需要在客户端创建时单独处理
-		// 这里只能设置配置参数
+
+		// 将日志器实例存储在配置的扩展字段中
+		// 这样客户端创建时可以直接使用这个日志器实例
+		if cfg.Extensions == nil {
+			cfg.Extensions = make(map[string]interface{})
+		}
+		cfg.Extensions["custom_logger"] = logger
+
 		return nil
 	}
 }

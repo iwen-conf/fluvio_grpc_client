@@ -17,6 +17,9 @@ type Config struct {
 
 	// 客户端配置
 	Client *ClientConfig
+
+	// 扩展字段，用于存储自定义配置
+	Extensions map[string]interface{} `json:"extensions,omitempty" yaml:"extensions,omitempty"`
 }
 
 // LoggingConfig 日志配置
