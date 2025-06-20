@@ -392,11 +392,10 @@ message ComponentHealth {
 
 // HealthCheckReply 健康检查响应结构
 message HealthCheckReply {
-  bool ok = 1; // 服务是否健康（向后兼容）
-  string message = 2; // 额外的健康状态消息（向后兼容）
-  HealthStatus status = 3; // 详细健康状态
-  google.protobuf.Timestamp timestamp = 4; // 检查时间戳
-  repeated ComponentHealth components = 5; // 各组件健康状态
+  HealthStatus status = 1; // 健康状态
+  string message = 2; // 状态描述消息
+  google.protobuf.Timestamp timestamp = 3; // 检查时间戳
+  repeated ComponentHealth components = 4; // 各组件健康状态
 }
 
 // --- 高级功能 --- //

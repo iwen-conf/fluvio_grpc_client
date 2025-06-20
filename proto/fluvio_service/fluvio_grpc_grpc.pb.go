@@ -48,7 +48,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// FluvioService 定义了模拟 Fluvio 的核心服务接口
+// FluvioService 定义了 Fluvio 的核心服务接口
 type FluvioServiceClient interface {
 	// 消息生产/消费相关
 	Produce(ctx context.Context, in *ProduceRequest, opts ...grpc.CallOption) (*ProduceReply, error)
@@ -332,7 +332,7 @@ func (c *fluvioServiceClient) HealthCheck(ctx context.Context, in *HealthCheckRe
 // All implementations must embed UnimplementedFluvioServiceServer
 // for forward compatibility.
 //
-// FluvioService 定义了模拟 Fluvio 的核心服务接口
+// FluvioService 定义了 Fluvio 的核心服务接口
 type FluvioServiceServer interface {
 	// 消息生产/消费相关
 	Produce(context.Context, *ProduceRequest) (*ProduceReply, error)

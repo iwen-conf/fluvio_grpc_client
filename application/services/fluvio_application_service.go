@@ -180,10 +180,7 @@ func (s *FluvioApplicationService) ListTopics(ctx context.Context, req *dtos.Lis
 	return s.topicRepo.ListTopics(ctx, req)
 }
 
-// ListTopicsSimple 简单列出主题（向后兼容）
-func (s *FluvioApplicationService) ListTopicsSimple(ctx context.Context) (*dtos.ListTopicsResponse, error) {
-	return s.topicRepo.ListTopics(ctx, &dtos.ListTopicsRequest{})
-}
+
 
 // DescribeTopic 描述主题
 func (s *FluvioApplicationService) DescribeTopic(ctx context.Context, req *dtos.DescribeTopicRequest) (*dtos.DescribeTopicResponse, error) {

@@ -2430,7 +2430,7 @@ func (*DescribeClusterRequest) Descriptor() ([]byte, []int) {
 	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{37}
 }
 
-// DescribeClusterReply 获取集群状态响应 (占位符)
+// DescribeClusterReply 获取集群状态响应
 type DescribeClusterReply struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`                                  // 例如: "Healthy", "Degraded"
@@ -2528,7 +2528,7 @@ func (*ListBrokersRequest) Descriptor() ([]byte, []int) {
 	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{39}
 }
 
-// BrokerInfo Broker 节点信息 (占位符)
+// BrokerInfo Broker 节点信息
 type BrokerInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -2642,7 +2642,7 @@ func (x *ListBrokersReply) GetError() string {
 	return ""
 }
 
-// GetMetricsRequest 获取指标请求 (占位符)
+// GetMetricsRequest 获取指标请求
 type GetMetricsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MetricNames   []string               `protobuf:"bytes,1,rep,name=metric_names,json=metricNames,proto3" json:"metric_names,omitempty"`                                              // 指定要获取的指标名称 (可选)
@@ -2695,7 +2695,7 @@ func (x *GetMetricsRequest) GetLabels() map[string]string {
 	return nil
 }
 
-// Metric 指标信息 (占位符)
+// Metric 指标信息
 type Metric struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -2934,11 +2934,10 @@ func (x *ComponentHealth) GetResponseTimeMs() int64 {
 // HealthCheckReply 健康检查响应结构
 type HealthCheckReply struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`                                       // 服务是否健康（向后兼容）
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`                              // 额外的健康状态消息（向后兼容）
-	Status        HealthStatus           `protobuf:"varint,3,opt,name=status,proto3,enum=fluvio_grpc.HealthStatus" json:"status,omitempty"` // 详细健康状态
-	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`                          // 检查时间戳
-	Components    []*ComponentHealth     `protobuf:"bytes,5,rep,name=components,proto3" json:"components,omitempty"`                        // 各组件健康状态
+	Status        HealthStatus           `protobuf:"varint,1,opt,name=status,proto3,enum=fluvio_grpc.HealthStatus" json:"status,omitempty"` // 健康状态
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`                              // 状态描述消息
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`                          // 检查时间戳
+	Components    []*ComponentHealth     `protobuf:"bytes,4,rep,name=components,proto3" json:"components,omitempty"`                        // 各组件健康状态
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2973,11 +2972,11 @@ func (*HealthCheckReply) Descriptor() ([]byte, []int) {
 	return file_proto_fluvio_grpc_proto_rawDescGZIP(), []int{47}
 }
 
-func (x *HealthCheckReply) GetOk() bool {
+func (x *HealthCheckReply) GetStatus() HealthStatus {
 	if x != nil {
-		return x.Ok
+		return x.Status
 	}
-	return false
+	return HealthStatus_UNKNOWN
 }
 
 func (x *HealthCheckReply) GetMessage() string {
@@ -2985,13 +2984,6 @@ func (x *HealthCheckReply) GetMessage() string {
 		return x.Message
 	}
 	return ""
-}
-
-func (x *HealthCheckReply) GetStatus() HealthStatus {
-	if x != nil {
-		return x.Status
-	}
-	return HealthStatus_UNKNOWN
 }
 
 func (x *HealthCheckReply) GetTimestamp() *timestamppb.Timestamp {
@@ -4841,14 +4833,13 @@ const file_proto_fluvio_grpc_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x121\n" +
 	"\x06status\x18\x02 \x01(\x0e2\x19.fluvio_grpc.HealthStatusR\x06status\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x12(\n" +
-	"\x10response_time_ms\x18\x04 \x01(\x03R\x0eresponseTimeMs\"\xe7\x01\n" +
-	"\x10HealthCheckReply\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\x121\n" +
-	"\x06status\x18\x03 \x01(\x0e2\x19.fluvio_grpc.HealthStatusR\x06status\x128\n" +
-	"\ttimestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12<\n" +
+	"\x10response_time_ms\x18\x04 \x01(\x03R\x0eresponseTimeMs\"\xd7\x01\n" +
+	"\x10HealthCheckReply\x121\n" +
+	"\x06status\x18\x01 \x01(\x0e2\x19.fluvio_grpc.HealthStatusR\x06status\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x128\n" +
+	"\ttimestamp\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12<\n" +
 	"\n" +
-	"components\x18\x05 \x03(\v2\x1c.fluvio_grpc.ComponentHealthR\n" +
+	"components\x18\x04 \x03(\v2\x1c.fluvio_grpc.ComponentHealthR\n" +
 	"components\"\x86\x01\n" +
 	"\x0fFilterCondition\x12+\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x17.fluvio_grpc.FilterTypeR\x04type\x12\x14\n" +
