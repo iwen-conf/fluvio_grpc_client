@@ -14,11 +14,11 @@ type MessageRepository interface {
 	ProduceBatch(ctx context.Context, messages []*entities.Message) error
 	
 	// 消费消息
-	Consume(ctx context.Context, topic string, partition int32, offset int64, maxMessages int) ([]*entities.Message, error)
+	Consume(ctx context.Context, topic string, partition int32, offset int64, maxMessages int, group string) ([]*entities.Message, error)
 	ConsumeFiltered(ctx context.Context, topic string, filters []*valueobjects.FilterCondition, maxMessages int) ([]*entities.Message, error)
 	
 	// 流式消费
-	ConsumeStream(ctx context.Context, topic string, partition int32, offset int64) (<-chan *entities.Message, error)
+	ConsumeStream(ctx context.Context, topic string, partition int32, offset int64, group string) (<-chan *entities.Message, error)
 	
 	// 偏移量管理
 	GetOffset(ctx context.Context, topic string, partition int32, consumerGroup string) (int64, error)

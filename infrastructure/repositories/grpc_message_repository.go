@@ -151,13 +151,14 @@ func (r *GRPCMessageRepository) ProduceBatch(ctx context.Context, messages []*en
 }
 
 // Consume 消费消息
-func (r *GRPCMessageRepository) Consume(ctx context.Context, topic string, partition int32, offset int64, maxMessages int) ([]*entities.Message, error) {
+func (r *GRPCMessageRepository) Consume(ctx context.Context, topic string, partition int32, offset int64, maxMessages int, group string) ([]*entities.Message, error) {
 	// 记录调试日志
 	context := utils.NewContextBuilder().
 		Add("topic", topic).
 		Add("partition", partition).
 		Add("offset", offset).
 		Add("max_messages", maxMessages).
+		Add("group", group).
 		Build()
 	r.handler.LogDebugOperation("消费消息", context)
 
@@ -166,6 +167,7 @@ func (r *GRPCMessageRepository) Consume(ctx context.Context, topic string, parti
 		Partition:   partition,
 		Offset:      offset,
 		MaxMessages: int32(maxMessages),
+		Group:       group,
 	}
 
 	// 调用gRPC服务
@@ -258,17 +260,19 @@ func (r *GRPCMessageRepository) ConsumeFiltered(ctx context.Context, topic strin
 // 客户端过滤逻辑已移除，过滤应该由服务端处理
 
 // ConsumeStream 流式消费消息
-func (r *GRPCMessageRepository) ConsumeStream(ctx context.Context, topic string, partition int32, offset int64) (<-chan *entities.Message, error) {
+func (r *GRPCMessageRepository) ConsumeStream(ctx context.Context, topic string, partition int32, offset int64, group string) (<-chan *entities.Message, error) {
 	r.logger.Debug("开始流式消费",
 		logging.Field{Key: "topic", Value: topic},
 		logging.Field{Key: "partition", Value: partition},
-		logging.Field{Key: "offset", Value: offset})
+		logging.Field{Key: "offset", Value: offset},
+		logging.Field{Key: "group", Value: group})
 
 	// 创建流式消费请求
 	req := &pb.StreamConsumeRequest{
 		Topic:     topic,
 		Partition: partition,
 		Offset:    offset,
+		Group:     group,
 	}
 
 	// 建立gRPC流

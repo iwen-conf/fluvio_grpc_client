@@ -77,7 +77,7 @@ func (s *FluvioApplicationService) ConsumeMessage(ctx context.Context, req *dtos
 	s.logger.Debug("Consuming messages", logging.Field{Key: "topic", Value: req.Topic})
 
 	// 调用仓储层进行实际的消息消费
-	messages, err := s.messageRepo.Consume(ctx, req.Topic, req.Partition, req.Offset, req.MaxMessages)
+	messages, err := s.messageRepo.Consume(ctx, req.Topic, req.Partition, req.Offset, req.MaxMessages, req.Group)
 	if err != nil {
 		s.logger.Error("Failed to consume messages",
 			logging.Field{Key: "error", Value: err},
@@ -143,14 +143,15 @@ func (s *FluvioApplicationService) CommitOffset(ctx context.Context, topic strin
 }
 
 // StreamConsume 流式消费消息
-func (s *FluvioApplicationService) StreamConsume(ctx context.Context, topic string, partition int32, offset int64) (<-chan *entities.Message, error) {
+func (s *FluvioApplicationService) StreamConsume(ctx context.Context, topic string, partition int32, offset int64, group string) (<-chan *entities.Message, error) {
 	s.logger.Debug("Starting stream consumption",
 		logging.Field{Key: "topic", Value: topic},
 		logging.Field{Key: "partition", Value: partition},
-		logging.Field{Key: "offset", Value: offset})
+		logging.Field{Key: "offset", Value: offset},
+		logging.Field{Key: "group", Value: group})
 
 	// 调用仓储层进行实际的流式消费
-	messageChan, err := s.messageRepo.ConsumeStream(ctx, topic, partition, offset)
+	messageChan, err := s.messageRepo.ConsumeStream(ctx, topic, partition, offset, group)
 	if err != nil {
 		s.logger.Error("Failed to start stream consumption",
 			logging.Field{Key: "error", Value: err},

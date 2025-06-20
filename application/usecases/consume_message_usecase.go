@@ -30,7 +30,7 @@ func NewConsumeMessageUseCase(
 // Execute 执行消费消息
 func (uc *ConsumeMessageUseCase) Execute(ctx context.Context, req *dtos.ConsumeMessageRequest) (*dtos.ConsumeMessageResponse, error) {
 	// 消费消息
-	messages, err := uc.messageRepo.Consume(ctx, req.Topic, req.Partition, req.Offset, req.MaxMessages)
+	messages, err := uc.messageRepo.Consume(ctx, req.Topic, req.Partition, req.Offset, req.MaxMessages, req.Group)
 	if err != nil {
 		return &dtos.ConsumeMessageResponse{
 			Success: false,

@@ -122,7 +122,7 @@ func (c *Consumer) Stream(ctx context.Context, topic string, opts *StreamOptions
 		partition = *opts.Partition
 	}
 
-	appMessageChan, err := c.appService.StreamConsume(ctx, topic, partition, opts.Offset)
+	appMessageChan, err := c.appService.StreamConsume(ctx, topic, partition, opts.Offset, opts.Group)
 	if err != nil {
 		c.logger.Error("Failed to start stream consumption", logging.Field{Key: "error", Value: err})
 		return nil, err
