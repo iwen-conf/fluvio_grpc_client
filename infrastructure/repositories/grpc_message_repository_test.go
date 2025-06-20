@@ -131,10 +131,6 @@ func (m *MockGRPCClient) Connect() error {
 	return nil
 }
 
-func (m *MockGRPCClient) Disconnect() error {
-	return nil
-}
-
 func (m *MockGRPCClient) IsConnected() bool {
 	return true
 }
