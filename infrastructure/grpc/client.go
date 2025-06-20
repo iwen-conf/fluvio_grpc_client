@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	pb "github.com/iwen-conf/fluvio_grpc_client/proto/fluvio_service"
 )
@@ -83,8 +82,8 @@ func (c *DefaultClient) Connect() error {
 		return nil
 	}
 
-	// 使用更长的超时时间来处理网络延迟
-	connectTimeout := 60 * time.Second // 增加到60秒以处理网络延迟
+	// 从配置中获取连接超时时间
+	connectTimeout := c.connManager.GetConfig().ConnectTimeout
 	ctx, cancel := context.WithTimeout(context.Background(), connectTimeout)
 	defer cancel()
 

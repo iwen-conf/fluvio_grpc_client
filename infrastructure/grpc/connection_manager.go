@@ -213,6 +213,11 @@ func (cm *ConnectionManager) GetConnectionCount() int {
 	return len(cm.conns)
 }
 
+// GetConfig 获取连接配置
+func (cm *ConnectionManager) GetConfig() *valueobjects.ConnectionConfig {
+	return cm.config
+}
+
 // GetConnectionStates 获取所有连接状态
 func (cm *ConnectionManager) GetConnectionStates() map[string]connectivity.State {
 	cm.mu.RLock()
