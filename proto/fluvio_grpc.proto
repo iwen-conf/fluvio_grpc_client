@@ -302,7 +302,6 @@ message DescribeSmartModuleRequest {
 // 新增: DescribeSmartModuleReply 获取 SmartModule 详情响应
 message DescribeSmartModuleReply {
     SmartModuleSpec spec = 1; // SmartModule 规格
-    // 可以添加其他状态信息, 如创建时间、使用情况等
     string error = 2; // 如果查询失败
 }
 
