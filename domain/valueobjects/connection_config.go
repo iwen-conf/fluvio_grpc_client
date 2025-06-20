@@ -38,7 +38,7 @@ func NewConnectionConfig(host string, port int) *ConnectionConfig {
 	return &ConnectionConfig{
 		Host:             host,
 		Port:             port,
-		ConnectTimeout:   5 * time.Second,
+		ConnectTimeout:   30 * time.Second, // 增加连接超时时间
 		RequestTimeout:   30 * time.Second,
 		MaxRetries:       3,
 		RetryInterval:    1 * time.Second,

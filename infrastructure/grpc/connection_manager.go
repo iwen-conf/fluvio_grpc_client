@@ -152,18 +152,27 @@ func (cm *ConnectionManager) createTLSCredentials() (credentials.TransportCreden
 
 // waitForConnection 等待连接就绪
 func (cm *ConnectionManager) waitForConnection(ctx context.Context, conn *grpc.ClientConn) error {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
 	for {
-		state := conn.GetState()
-		if state == connectivity.Ready {
-			return nil
-		}
-
-		if state == connectivity.TransientFailure || state == connectivity.Shutdown {
-			return errors.New(errors.ErrConnection, fmt.Sprintf("连接失败，状态: %v", state))
-		}
-
-		if !conn.WaitForStateChange(ctx, state) {
+		select {
+		case <-ctx.Done():
 			return errors.New(errors.ErrTimeout, "等待连接就绪超时")
+		case <-ticker.C:
+			state := conn.GetState()
+			cm.logger.Debug("连接状态检查", logging.Field{Key: "state", Value: state.String()})
+			
+			if state == connectivity.Ready {
+				return nil
+			}
+			
+			if state == connectivity.TransientFailure || state == connectivity.Shutdown {
+				return errors.New(errors.ErrConnection, fmt.Sprintf("连接失败，状态: %v", state))
+			}
+			
+			// 尝试触发连接状态变化
+			conn.Connect()
 		}
 	}
 }

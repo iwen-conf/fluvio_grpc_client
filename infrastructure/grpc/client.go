@@ -83,7 +83,9 @@ func (c *DefaultClient) Connect() error {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// 使用更长的超时时间来处理网络延迟
+	connectTimeout := 60 * time.Second // 增加到60秒以处理网络延迟
+	ctx, cancel := context.WithTimeout(context.Background(), connectTimeout)
 	defer cancel()
 
 	conn, err := c.connManager.GetConnection(ctx)
